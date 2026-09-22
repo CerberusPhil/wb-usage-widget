@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WB 积分挂件</title>
+<style>
+  /* ===== 桌面挂件 · 精简仪表盘（基准 420×450，可拖拽缩放）· WorkBuddy / EVA-01 / EVA-02 三主题 ===== */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; }
+  body { font-family:Consolas,"Courier New","Microsoft YaHei",monospace;
+         color:var(--text); background:var(--bg);
+         --fs:1;
+         overflow:hidden; user-select:none; }
+
+  #app { position:relative; width:420px; height:450px;
+         padding:14px; display:flex; flex-direction:column; gap:9px; }
+
+  body, body[data-theme="wb"] {
+    --bg:#f6f8f9; --panel:#ffffff; --pborder:#e4e9ed;
+    --accent:#00ad91; --accent2:#00c9a7; --glow2:rgba(0,201,167,.22);
+    --bright:#0b7a68; --mid:#5c7280; --dim:#7c8f9c; --faint:#9aacb8;
+    --text:#24343f; --alert:#e5484d; --ok:#10b981;
+    --nodata:#eef2f4; --nodata-bd:#e0e7ea;
+  }
+  body[data-theme="eva01"] {
+    --bg:#0a0a12; --panel:#14102a; --pborder:#3d2a6e;
+    --accent:#a05cff; --accent2:#9eff00; --glow2:rgba(158,255,0,.45);
+    --bright:#d8ffb0; --mid:#8ed03f; --dim:#74b03c; --faint:#63a03c;
+    --text:#b8f04a; --alert:#9eff00; --ok:#9eff00;
+    --nodata:#161228; --nodata-bd:#241d3d;
+  }
+  body[data-theme="eva02"] {
+    --bg:#100a0a; --panel:#1a0d0d; --pborder:#5e1f1f;
+    --accent:#ff4340; --accent2:#ffd23d; --glow2:rgba(255,210,61,.45);
+    --bright:#ffb8a5; --mid:#e0958a; --dim:#cc857c; --faint:#a86e66;
+    --text:#f0dcd5; --alert:#ffd23d; --ok:#8be09a;
+    --nodata:#1c1010; --nodata-bd:#2e1a1a;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  @keyframes rise { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .card, .model-block { animation: rise .4s ease both; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+
+  /* header */
+  .hd { display:flex; align-items:baseline; gap:8px; flex:none; }
+  .hd b { font-size:calc(13px * var(--fs,1)); letter-spacing:2px; color:var(--accent); font-weight:700; }
+  .hd .sub { font-size:calc(9.5px * var(--fs,1)); color:var(--faint); letter-spacing:1px; font-weight:600; }
+  .hd .tbtns { margin-left:auto; display:flex; gap:4px; align-items:center; }
+  .tb { width:14px; height:14px; border-radius:2px; cursor:pointer; border:1px solid var(--pborder); padding:0; }
+  .tb[data-t="wb"]    { background:#00c9a7; }
+  .tb[data-t="eva01"] { background:linear-gradient(120deg,#a05cff 40%,#9eff00 60%); }
+  .tb[data-t="eva02"] { background:linear-gradient(120deg,#ff4340 40%,#ffd23d 60%); }
+  .tb.on { outline:2px solid var(--accent); outline-offset:1px; }
+  .hbtn { width:16px; height:16px; border-radius:2px; cursor:pointer;
+          border:1px solid var(--dim); background:transparent; color:var(--dim);
+          font-size:calc(9px * var(--fs,1)); line-height:1; padding:0; font-family:inherit; font-weight:700; }
+  .hbtn:hover { border-color:var(--accent2); color:var(--accent2); }
+  #btnClose { margin-left:5px; }
+  #btnClose:hover { border-color:var(--alert); color:var(--alert); }
+
+  /* 拖拽缩放手柄：右缘=等比缩放；下缘=拉出更多内容；右下角=自由宽高（Shift 锁比例） */
+  .rz { position:absolute; border:none; background:transparent; padding:0; z-index:30; }
+  .rz-e { top:10px; right:0; bottom:14px; width:7px; cursor:ew-resize; }
+  .rz-s { left:10px; right:14px; bottom:0; height:7px; cursor:ns-resize; }
+  .rz-e:hover, .rz-s:hover { background:var(--accent2); opacity:.30; }
+  /* 右下角抓取点：斜纹即提示，悬停高亮；占据边角相交区（原装饰性 grip 升级为热区） */
+  .rz-c { right:0; bottom:0; width:17px; height:17px; z-index:31; cursor:nwse-resize;
+          background:repeating-linear-gradient(135deg, var(--dim) 0 1px, transparent 1px 4px);
+          opacity:.55; border-radius:0 0 2px 0; }
+  .rz-c:hover { background:repeating-linear-gradient(135deg, var(--accent2) 0 1px, transparent 1px 4px);
+                opacity:.95; }
+  /* 禁止链接/图片的原生拖拽（否则拖窗手势会被浏览器原生 drag 吞掉） */
+  a, img { -webkit-user-drag: none; }
+
+  /* 通用卡 */
+  .card { position:relative; background:var(--panel); border:1px solid var(--pborder);
+          border-radius:3px; padding:10px 12px; }
+  .card::before, .card::after { content:''; position:absolute; width:9px; height:9px; }
+  .card::before { top:-1px; left:-1px; border-top:2px solid var(--accent2); border-left:2px solid var(--accent2); }
+  .card::after  { bottom:-1px; right:-1px; border-bottom:2px solid var(--accent2); border-right:2px solid var(--accent2); }
+  .label { font-size:calc(9.5px * var(--fs,1)); color:var(--dim); letter-spacing:1px; font-weight:600; margin-bottom:4px; }
+
+  /* 余额卡 */
+  .bal { display:block; text-decoration:none; cursor:pointer; }
+  .bal:hover { border-color:var(--accent2); }
+  .bal .value { font-size:calc(34px * var(--fs,1)); font-weight:700; line-height:1.05; color:var(--accent2); text-shadow:0 0 12px var(--glow2); }
+  .bal .unit { font-size:calc(11px * var(--fs,1)); color:var(--dim); margin-left:3px; font-weight:600; }
+  .progress { height:5px; background:var(--nodata); border:1px solid var(--nodata-bd); margin-top:7px; border-radius:2px; }
+  .progress > i { display:block; height:100%; background:var(--accent2); border-radius:2px; transition:width .8s cubic-bezier(.22,1,.36,1); }
+  .bal .note { font-size:calc(9.5px * var(--fs,1)); color:var(--mid); margin-top:5px; font-weight:600; }
+  .bal .go { position:absolute; top:9px; right:11px; font-size:calc(9.5px * var(--fs,1)); color:var(--faint); font-weight:600; letter-spacing:1px; }
+
+  /* 双数字 */
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:9px; flex:none; }
+  .duo .card { padding:9px 11px; }
+  .duo .value { font-size:calc(20px * var(--fs,1)); font-weight:700; color:var(--accent2); line-height:1.1; }
+  .duo .unit { font-size:calc(9.5px * var(--fs,1)); color:var(--dim); margin-left:2px; font-weight:600; }
+  .duo .note { font-size:calc(9px * var(--fs,1)); color:var(--mid); margin-top:3px; font-weight:600; }
+
+  /* 今日会话消耗（行数随窗口高度变化） */
+  .model-block { flex:1; display:flex; flex-direction:column; background:var(--panel);
+                 border:1px solid var(--pborder); border-radius:3px; padding:10px 12px; min-height:0; }
+  .blk-head { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; flex:none; }
+  .blk-head .lbl { font-size:calc(9.5px * var(--fs,1)); color:var(--dim); letter-spacing:1px; font-weight:700; }
+  .blk-head .rng { margin-left:auto; font-size:calc(9px * var(--fs,1)); color:var(--faint); font-weight:600; }
+  .mrows { flex:1; display:flex; flex-direction:column; justify-content:space-evenly; gap:4px;
+           min-height:0; overflow:hidden; }
+  .mrow { display:flex; align-items:center; gap:5px; }
+  .mname { width:92px; flex:none; font-size:calc(9.5px * var(--fs,1)); color:var(--bright); font-weight:700;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mtrack { flex:1; height:9px; min-width:0; background:var(--nodata); border:1px solid var(--nodata-bd);
+            border-radius:2px; overflow:hidden; }
+  .mfill { display:block; height:100%; width:0%; background:var(--accent2); border-radius:1px;
+           transition:width 1.1s cubic-bezier(.22,1,.36,1), background-color .22s ease; }
+  .noanim .mfill { transition:none; }
+  .mrow.r1 .mfill { box-shadow:0 0 6px var(--glow2); }
+  .mrow.r2 .mfill { opacity:.78; }
+  .mrow.r3 .mfill { opacity:.62; }
+  .mrow.r4 .mfill { opacity:.46; }
+  .mrow.r5 .mfill { opacity:.32; }
+  .mrow.r6 .mfill { opacity:.26; }
+  .mrow.r7 .mfill { opacity:.20; }
+  .mrow.r8 .mfill { opacity:.15; }
+  .mval { width:52px; flex:none; text-align:right; font-size:calc(10px * var(--fs,1)); font-weight:700; color:var(--text); }
+  .mn { width:34px; flex:none; text-align:right; font-size:calc(8.5px * var(--fs,1)); font-weight:600; color:var(--faint); }
+  .mnone { color:var(--faint); font-size:calc(10px * var(--fs,1)); text-align:center; margin:auto; }
+
+  /* footer */
+  .ft { display:flex; align-items:center; gap:6px; flex:none; font-size:calc(10px * var(--fs,1)); }
+  .status { color:var(--mid); font-weight:600; display:flex; align-items:center; gap:5px; min-width:0; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--ok); flex:none; }
+  .dot.warn { background:#ffd23d; } .dot.err { background:#ff3b3b; }
+  .status span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .fbtns { margin-left:auto; display:flex; gap:6px; }
+  .fb { cursor:pointer; font-family:inherit; font-weight:600; font-size:calc(10px * var(--fs,1)); letter-spacing:1px;
+        background:transparent; color:var(--bright); border:1px solid var(--dim);
+        border-radius:2px; padding:3px 8px; text-decoration:none; white-space:nowrap; }
+  .fb:hover { background:var(--accent); color:var(--bg); }
+  .fb.off { opacity:.25; pointer-events:none; }
+  .fsctl { display:flex; align-items:center; gap:2px; }
+  .fsctl .fb { padding:3px 6px; }
+  .fsval { font-size:calc(10px * var(--fs,1)); color:var(--mid); min-width:28px; text-align:center; font-weight:600; }
+  .card.flipable { cursor:pointer; }
+  .card.flipable:hover { border-color:var(--accent2); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hd">
+    <b id="appTitle">WORKBUDDY</b><span class="sub">积分 · Token 挂件</span>
+    <span class="tbtns">
+      <button class="tb" data-t="wb" title="WorkBuddy"></button>
+      <button class="tb" data-t="eva01" title="EVA-01"></button>
+      <button class="tb" data-t="eva02" title="EVA-02"></button>
+      <button class="hbtn" id="btnMin" title="最小化到任务栏">−</button>
+      <button class="hbtn" id="btnClose" title="关闭挂件（后台同步服务会继续运行）">✕</button>
+    </span>
+  </div>
+
+  <a class="bal card" id="balCard" href="https://www.workbuddy.cn/profile/growth-center" target="_blank" rel="noopener noreferrer">
+    <div class="go">BALANCE ↗</div>
+    <div class="label">积分余额 · 点击查看成长计划</div>
+    <div class="value num"><span id="vBal">0.00</span><span class="unit">积分</span></div>
+    <div class="progress"><i id="balBar" style="width:0%"></i></div>
+    <div class="note" id="balNote">—</div>
+  </a>
+
+  <div class="duo">
+    <div class="card flipable" id="cardToday" title="点击切换 积分 ⇄ Token（Token 为本机口径）">
+      <div class="label">今日消耗</div>
+      <div class="value num"><span id="vToday">0.00</span><span class="unit" id="uToday">积分</span></div>
+      <div class="note" id="nToday">—</div>
+    </div>
+    <div class="card flipable" id="cardMonth" title="点击切换 积分 ⇄ Token（Token 为本机口径）">
+      <div class="label">本月消耗</div>
+      <div class="value num"><span id="vMonth">0.00</span><span class="unit" id="uMonth">积分</span></div>
+      <div class="note" id="nMonth">—</div>
+    </div>
+  </div>
+
+  <div class="model-block">
+    <div class="blk-head"><span class="lbl">今日会话消耗</span><span class="rng" id="mRng"></span></div>
+    <div class="mrows" id="mrows"></div>
+  </div>
+
+  <div class="ft">
+    <span class="status"><span class="dot" id="stDot"></span><span id="stTxt">加载中…</span></span>
+    <span class="fbtns">
+      <span class="fsctl"><button class="fb" id="fsDown" title="缩小字号">A−</button><span class="fsval num" id="fsVal">100%</span><button class="fb" id="fsUp" title="放大字号">A+</button></span>
+      <button class="fb" id="btnSync" title="立即同步账单">⟳ 同步</button>
+      <a class="fb" id="btnFull" href="/full" target="_blank" title="打开完整看板">↗ 完整版</a>
+    </span>
+  </div>
+
+  <!-- 缩放热区：右缘=等比缩放；下缘=拉出更多内容；右下角=自由宽高（Shift 锁比例） -->
+  <button class="rz rz-e" id="rzE" title="拖动：等比缩放整个挂件"></button>
+  <button class="rz rz-s" id="rzS" title="拖动：拉长显示更多模型行（Shift 锁比例）"></button>
+  <button class="rz rz-c" id="rzC" title="拖动：自由调整宽高（Shift 锁定比例）"></button>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+const $ = s => document.querySelector(s);
+const INITIAL = JSON.parse(JSON.stringify(DATA));
+let LAST = INITIAL;
+let curRows = 5;               // 模型列表当前显示行数（随窗口高度变化）
+
+/* ===== 窗口尺寸：右缘等比缩放 / 下缘扩展内容 ===== */
+const W_BASE = 420, H_BASE = 450, RATIO = H_BASE / W_BASE;
+const MIN_W = 350, MAX_W = 672, MIN_H = 340, MAX_H = 1200;
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+function applySize(w, h){
+  const z = clamp(w / W_BASE, MIN_W / W_BASE, MAX_W / W_BASE);
+  const app = $('#app');
+  app.style.zoom = z;                                  // 等比缩放（含文字）
+  app.style.height = Math.ceil(h / z) + 'px';          // 余量高度转设计像素
+}
+function calcRows(){
+  const appH = parseFloat($('#app').style.height) || H_BASE;
+  const genDay = (LAST.generated_at || '').slice(0,10);
+  const total = Object.keys(((LAST.session_days || {})[genDay]) || {}).length || 5;
+  let n;
+  if(appH >= H_BASE) n = 5 + Math.floor((appH - H_BASE) / 26);   // 每高 26px 多一行
+  else n = 5 - Math.ceil((H_BASE - appH) / 42);                  // 变矮则逐行收起
+  return clamp(n, 3, total);
+}
+let rowTimer = null;
+function scheduleRowUpdate(){
+  clearTimeout(rowTimer);
+  rowTimer = setTimeout(()=>{
+    const want = calcRows();
+    if(want !== curRows){ curRows = want; renderTodaySessions(LAST, false); }
+  }, 260);
+}
+window.addEventListener('resize', ()=>{
+  applySize(window.innerWidth, window.innerHeight);
+  scheduleRowUpdate();
+});
+
+let lastSent = 0;
+function sendResize(w, h, force){
+  applySize(w, h);                                     // 本地即时反馈
+  const now = performance.now();
+  if(!force && now - lastSent < 24) return;
+  lastSent = now;
+  try{
+    if(window.pywebview && window.pywebview.api && window.pywebview.api.resize_window){
+      window.pywebview.api.resize_window(Math.round(w), Math.round(h));
+    }
+  }catch(e){}
+}
+function dragResize(mode, ev){
+  ev.preventDefault();                                 // 阻止原生行为（文本选择等）
+  ev.stopPropagation();
+  const el = ev.currentTarget;
+  try{ el.setPointerCapture(ev.pointerId); }catch(e){}
+  const x0 = ev.screenX, y0 = ev.screenY;
+  const w0 = window.innerWidth, h0 = window.innerHeight;
+  const ratio = h0 / w0;                               // 当前宽高比（锁比例缩放基准）
+  let lastTarget = null;
+  function lockScale(s){                               // 比例因子夹取到尺寸上下限内
+    const lo = Math.max(MIN_W / w0, MIN_H / h0);
+    const hi = Math.min(MAX_W / w0, MAX_H / h0);
+    return clamp(s, lo, Math.max(lo, hi));
+  }
+  function move(e2){
+    const dx = e2.screenX - x0, dy = e2.screenY - y0;
+    if(mode === 'w'){
+      const w = clamp(w0 + dx, MIN_W, MAX_W);          // 右缘：横向驱动，高按当前比例跟随
+      lastTarget = [Math.round(w), Math.round(clamp(w * ratio, MIN_H, MAX_H))];
+    } else if(mode === 'h'){
+      if(e2.shiftKey){
+        const s = lockScale((h0 + dy) / h0);           // Shift：锁比例（高驱动，宽跟随）
+        lastTarget = [Math.round(w0 * s), Math.round(h0 * s)];
+      } else {
+        lastTarget = [w0, Math.round(clamp(h0 + dy, MIN_H, MAX_H))];   // 下缘：拉出更多行
+      }
+    } else {                                           // 右下角：自由双向
+      if(e2.shiftKey){
+        const s = lockScale(Math.abs(dx) >= Math.abs(dy) ? (w0 + dx) / w0 : (h0 + dy) / h0);
+        lastTarget = [Math.round(w0 * s), Math.round(h0 * s)];
+      } else {
+        lastTarget = [Math.round(clamp(w0 + dx, MIN_W, MAX_W)),
+                      Math.round(clamp(h0 + dy, MIN_H, MAX_H))];
+      }
+    }
+    sendResize(lastTarget[0], lastTarget[1]);
+  }
+  function up(){
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+    try{ el.releasePointerCapture(ev.pointerId); }catch(e){}
+    document.body.style.cursor = '';
+    if(lastTarget) sendResize(lastTarget[0], lastTarget[1], true);   // 补发最终尺寸
+    scheduleRowUpdate();
+    scheduleSave();
+  }
+  document.body.style.cursor = mode === 'w' ? 'ew-resize' : (mode === 'h' ? 'ns-resize' : 'nwse-resize');
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+}
+/* ===== 自实现整窗拖拽（不依赖 pywebview easy_drag）=====
+   关键时序：按下时【不】设 pointer capture、【不】preventDefault —— 纯点击（余额卡跳转等）
+   保持原生可达；位移越过 4px 阈值后才启用捕获、开始移动窗口，松手后的 click 被抑制 */
+(function(){
+  let pending = null;                                  // 按下候选（未越阈值）：{id, sx, sy}
+  let dragging = false, dragId = -1, moved = false, sx = 0, sy = 0, lastT = 0;
+  function begin(e){
+    moved = false;
+    if(e.button !== 0 || dragging) return;
+    if(e.target.closest('button, .rz, input, select, textarea')) return;   // 控件与缩放热区：不拖窗
+    if(!(window.pywebview && window.pywebview.api && window.pywebview.api.drag_begin)) return;
+    pending = { id: e.pointerId, sx: e.screenX, sy: e.screenY };
+  }
+  function move(e){
+    if(dragging){
+      if(e.pointerId !== dragId) return;
+      const now = performance.now();
+      if(now - lastT < 16) return;
+      lastT = now;
+      try{ window.pywebview.api.drag_to(e.screenX - sx, e.screenY - sy); }catch(err){}
+      return;
+    }
+    if(!pending || e.pointerId !== pending.id) return;
+    const dx = e.screenX - pending.sx, dy = e.screenY - pending.sy;
+    if(Math.abs(dx) + Math.abs(dy) <= 4) return;       // 阈值内：维持纯点击语义
+    dragging = true; moved = true; dragId = pending.id;
+    sx = pending.sx; sy = pending.sy; lastT = 0; pending = null;
+    try{ $('#app').setPointerCapture(dragId); }catch(err){}
+    try{ window.pywebview.api.drag_begin(); }catch(err){}
+    try{ window.pywebview.api.drag_to(dx, dy); }catch(err){}
+    document.body.style.cursor = 'grabbing';
+  }
+  function end(e){
+    if(e && dragging && e.pointerId !== dragId) return;
+    if(dragging){
+      dragging = false;
+      document.body.style.cursor = '';
+      try{ window.pywebview.api.drag_end(); }catch(err){}
+      setTimeout(()=>{ moved = false; }, 350);         // 兜底：拖后未派发 click 的场合
+    }
+    pending = null;
+  }
+  $('#app').addEventListener('pointerdown', begin);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+  /* 拖窗之后抑制误点击（余额卡、完整版链接等）；非拖拽点击原样放行 */
+  document.addEventListener('click', e=>{
+    if(moved){ moved = false; e.preventDefault(); e.stopPropagation(); }
+  }, true);
+})();
+
+$('#rzE').addEventListener('pointerdown', e=>dragResize('w', e));
+$('#rzS').addEventListener('pointerdown', e=>dragResize('h', e));
+$('#rzC').addEventListener('pointerdown', e=>dragResize('c', e));
+
+/* 尺寸持久化（仅真挂件模式；浏览器预览不受影响） */
+let saveTimer = null;
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try{
+      if(window.pywebview && window.pywebview.api)
+        localStorage.setItem('wb_widget_size', JSON.stringify({w: window.innerWidth, h: window.innerHeight}));
+    }catch(e){}
+  }, 400);
+}
+function restoreSize(){
+  try{
+    if(!(window.pywebview && window.pywebview.api && window.pywebview.api.resize_window)) return;
+    const s = JSON.parse(localStorage.getItem('wb_widget_size') || 'null');
+    if(s && s.w >= MIN_W && s.h >= MIN_H) window.pywebview.api.resize_window(s.w, s.h);
+  }catch(e){}
+}
+window.addEventListener('pywebviewready', restoreSize);
+setTimeout(restoreSize, 1500);
+
+/* ===== 主题 ===== */
+const THEMES = ['wb','eva01','eva02'];
+const TITLES = { wb:'WORKBUDDY', eva01:'EVA-01', eva02:'EVA-02' };
+function setTheme(t, replay){
+  if(!THEMES.includes(t)) t = 'wb';
+  document.body.dataset.theme = t;
+  try{ localStorage.setItem('wb_widget_theme', t); }catch(e){}
+  document.querySelectorAll('.tb').forEach(b=>b.classList.toggle('on', b.dataset.t===t));
+  const tt = document.getElementById('appTitle'); if(tt) tt.textContent = TITLES[t] || 'WORKBUDDY';
+  if(replay){ replayNums(); renderTodaySessions(LAST); }
+}
+(function(){
+  let t = 'wb';
+  try{ t = localStorage.getItem('wb_widget_theme') || 'wb'; }catch(e){}
+  setTheme(t, false);
+  document.querySelectorAll('.tb').forEach(b=>b.onclick = ()=>setTheme(b.dataset.t, true));
+})();
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function animateNum(el, target, decimals, dur){
+  if(!el) return; dur = dur || 900;
+  const from = parseFloat(String(el.textContent).replace(/,/g,'')) || 0;
+  const t0 = performance.now();
+  function step(t){
+    const p = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = (from + (target - from) * e).toFixed(decimals);
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+function fmtTok(n){
+  n = n || 0;
+  if(n >= 1e8) return (n/1e8).toFixed(2) + '亿';
+  if(n >= 1e4) return (n/1e4).toFixed(1) + '万';
+  return String(Math.round(n));
+}
+function parseTok(s){
+  s = String(s || '').replace(/,/g,'');
+  if(s.endsWith('亿')) return (parseFloat(s) || 0) * 1e8;
+  if(s.endsWith('万')) return (parseFloat(s) || 0) * 1e4;
+  return parseFloat(s) || 0;
+}
+function animateTok(el, target, dur){
+  if(!el) return; dur = dur || 900;
+  const from = parseTok(el.textContent);
+  const t0 = performance.now();
+  function step(t){
+    const p = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmtTok(from + (target - from) * e);
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* 数字重播（切主题/缩放时不丢动画） */
+let NUM = { bal:null, today:null, month:null, todayTok:null, monthTok:null, tokMode:false };
+function replayNums(){
+  if(NUM.tokMode){
+    if(NUM.todayTok !== null){ $('#vToday').textContent = '0'; animateTok($('#vToday'), NUM.todayTok || 0); }
+    if(NUM.monthTok !== null){ $('#vMonth').textContent = '0'; animateTok($('#vMonth'), NUM.monthTok || 0); }
+  } else {
+    if(NUM.today !== null){ $('#vToday').textContent = '0.00'; animateNum($('#vToday'), NUM.today, 2); }
+    if(NUM.month !== null){ $('#vMonth').textContent = '0.00'; animateNum($('#vMonth'), NUM.month, 2); }
+  }
+  if(NUM.bal   !== null){ $('#vBal').textContent = '0.00';   animateNum($('#vBal'), NUM.bal, 2); }
+}
+
+/* ===== 卡片点击切换 积分 ⇄ Token（与完整看板共享记忆 wb_cardmetric） ===== */
+let cardMetric = 'credit';
+try{ const cm = localStorage.getItem('wb_cardmetric'); if(cm === 'token' || cm === 'credit') cardMetric = cm; }catch(e){}
+function setCardMetric(m){
+  cardMetric = (m === 'token') ? 'token' : 'credit';
+  try{ localStorage.setItem('wb_cardmetric', cardMetric); }catch(e){}
+  render(LAST, false);
+}
+$('#cardToday').onclick = ()=>setCardMetric(cardMetric === 'credit' ? 'token' : 'credit');
+$('#cardMonth').onclick = ()=>setCardMetric(cardMetric === 'credit' ? 'token' : 'credit');
+
+/* ===== 渲染 ===== */
+function render(d, animate){
+  if(!d || d.ok === false){
+    $('#stDot').className = 'dot err';
+    $('#stTxt').textContent = '暂无数据（请先运行 server_usage_sync.py）';
+    return;
+  }
+  LAST = d;
+  const DAYS = d.days || {};
+  const genDay = (d.generated_at || '').slice(0,10);
+  const today = DAYS[genDay] || {credit:0, req_n:0, free_n:0};
+  const monthKey = genDay.slice(0,7);
+  let month = 0, monthN = 0;
+  Object.keys(DAYS).forEach(k=>{ if(k.startsWith(monthKey)){ month += DAYS[k].credit; monthN += DAYS[k].req_n; } });
+
+  const b = d.balance;
+  if(b){
+    NUM.bal = b.remain;
+    animateNum($('#vBal'), b.remain, 2);
+    $('#balBar').style.width = Math.min(100, b.used/b.total*100).toFixed(1) + '%';
+    $('#balNote').textContent = `当前周期已用 ${b.used.toFixed(2)} / ${b.total.toFixed(2)}`;
+  } else {
+    NUM.bal = null;
+    $('#vBal').textContent = '—';
+    $('#balNote').textContent = '余额未同步';
+  }
+  /* 今日 / 本月：积分 ⇄ Token 双口径（Token 为本机 jsonl 视角） */
+  const TOKD = d.token_days || {};
+  const tday = TOKD[genDay] || {tokens:0, n:0};
+  let tokMonth = 0, tokMonthN = 0;
+  Object.keys(TOKD).forEach(k=>{ if(k.startsWith(monthKey)){ tokMonth += TOKD[k].tokens || 0; tokMonthN += TOKD[k].n || 0; } });
+  NUM.tokMode = (cardMetric === 'token');
+  NUM.today = today.credit; NUM.month = month;
+  NUM.todayTok = tday.tokens || 0; NUM.monthTok = tokMonth;
+  $('#uToday').textContent = NUM.tokMode ? 'Token' : '积分';
+  $('#uMonth').textContent = NUM.tokMode ? 'Token' : '积分';
+  if(NUM.tokMode){
+    animateTok($('#vToday'), NUM.todayTok);
+    $('#nToday').textContent = `本机 ${tday.n || 0} 次请求`;
+    animateTok($('#vMonth'), NUM.monthTok);
+    $('#nMonth').textContent = `本机 ${tokMonthN} 次请求`;
+  } else {
+    animateNum($('#vToday'), today.credit, 2);
+    $('#nToday').textContent = `${today.req_n} 次请求 · 免费 ${today.free_n} 次`;
+    animateNum($('#vMonth'), month, 2);
+    $('#nMonth').textContent = `${monthN} 次请求`;
+  }
+
+  renderTodaySessions(d);
+
+  // 状态
+  const meta = d.meta || {};
+  const dot = $('#stDot'), txt = $('#stTxt');
+  if(meta.syncing){ dot.className = 'dot warn'; txt.textContent = '同步中…'; }
+  else if(meta.stale){ dot.className = 'dot warn'; txt.textContent = '数据截至 ' + (meta.synced_at || d.generated_at || '—') + '（登录态可能过期）'; }
+  else { dot.className = 'dot'; txt.textContent = '同步于 ' + (meta.synced_at || d.generated_at || '—'); }
+}
+
+/* 今日会话消耗（横条：按 Token 降序，行数随高度自适应；与完整看板「会话消耗 · 按天」同口径） */
+function renderTodaySessions(d, animate){
+  const genDay = (d.generated_at || '').slice(0,10);
+  const dd = ((d.session_days || {})[genDay]) || {};
+  const idx = {};
+  (d.sessions || []).forEach(s=>{ idx[s.sid] = s; });
+  const all = Object.keys(dd).map(sid=>{
+    const v = dd[sid] || {}, meta = idx[sid] || {};
+    return { sid: sid, title: meta.title || '', n: v.n || 0,
+             tokens: v.tokens || 0, credit: v.credit || 0 };
+  }).sort((a,b)=>b.tokens - a.tokens);
+  const rows = all.slice(0, curRows);
+  const el = $('#mrows');
+  $('#mRng').textContent = all.length ? `TOP${rows.length} · 共 ${all.length} 个会话` : '';
+  if(!rows.length){ el.innerHTML = '<div class="mnone">今日暂无会话记录</div>'; return; }
+  const max = Math.max(1, ...rows.map(r=>r.tokens));
+  el.innerHTML = rows.map((r,i)=>{
+    const pct = r.tokens > 0 ? Math.max(4, Math.round(r.tokens/max*100)) : 2;
+    const title = r.title || r.sid.slice(0,8);
+    const t = `${title}：${fmtTok(r.tokens)} Token · ${r.credit.toFixed(1)} 积分 · ${r.n} 次请求`;
+    return `<div class="mrow r${i+1}" title="${esc(t)}">
+      <span class="mname">${esc(title)}</span>
+      <span class="mtrack"><i class="mfill" data-w="${pct}"></i></span>
+      <span class="mval num">${fmtTok(r.tokens)}</span>
+      <span class="mn">${r.n}次</span>
+    </div>`;
+  }).join('');
+  const setW = ()=>{ el.querySelectorAll('.mfill').forEach(f=>{ f.style.width = f.dataset.w + '%'; }); };
+  if(animate === false){
+    el.classList.add('noanim'); setW();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('noanim')));
+  } else {
+    requestAnimationFrame(()=>requestAnimationFrame(setW));
+  }
+}
+
+/* ===== 字号缩放（A− / A+ · 4 档 · localStorage 记忆） ===== */
+const FSCALES = [0.9, 1.0, 1.1, 1.25];
+let fsIndex = 1;
+function applyFs(){
+  document.body.style.setProperty('--fs', String(FSCALES[fsIndex]));
+  const el = $('#fsVal'); if(el) el.textContent = Math.round(FSCALES[fsIndex]*100) + '%';
+  const d = $('#fsDown'), u = $('#fsUp');
+  if(d) d.classList.toggle('off', fsIndex <= 0);
+  if(u) u.classList.toggle('off', fsIndex >= FSCALES.length - 1);
+  try{ localStorage.setItem('wb_widget_fs', String(fsIndex)); }catch(e){}
+}
+$('#fsDown').onclick = ()=>{ fsIndex = Math.max(0, fsIndex - 1); applyFs(); };
+$('#fsUp').onclick = ()=>{ fsIndex = Math.min(FSCALES.length - 1, fsIndex + 1); applyFs(); };
+try{ const v0 = parseInt(localStorage.getItem('wb_widget_fs'), 10); if(!isNaN(v0) && v0 >= 0 && v0 < FSCALES.length) fsIndex = v0; }catch(e){}
+applyFs();
+
+/* ===== 初始渲染 + 轮询 ===== */
+applySize(window.innerWidth, window.innerHeight);
+render(INITIAL, true);
+setInterval(()=>{
+  fetch('/api/data').then(r=>r.json()).then(d=>render(d, false)).catch(()=>{});
+}, 60000);
+
+/* 最小化 / 关闭 */
+$('#btnMin').onclick = ()=>{
+  try{
+    if(window.pywebview && window.pywebview.api && window.pywebview.api.minimize_widget){
+      window.pywebview.api.minimize_widget();
+    }
+  }catch(e){}
+};
+$('#btnClose').onclick = ()=>{
+  try{
+    if(window.pywebview && window.pywebview.api && window.pywebview.api.close_widget){
+      window.pywebview.api.close_widget();
+      return;
+    }
+  }catch(e){}
+  try{ window.open('', '_self'); }catch(e){}
+  window.close();
+};
+
+/* 余额卡 → 成长计划；完整版 → 浏览器打开。
+   真挂件模式走 open_url 桥（不依赖 WebView 对 target=_blank 的拦截行为）；
+   浏览器预览模式无桥，保持原生链接行为；拖拽后的误点击已由全局抑制器拦截 */
+function openExternal(url){
+  try{
+    if(window.pywebview && window.pywebview.api && window.pywebview.api.open_url){
+      window.pywebview.api.open_url(url);
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+$('#balCard').addEventListener('click', e=>{
+  if(openExternal('https://www.workbuddy.cn/profile/growth-center')) e.preventDefault();
+});
+$('#btnFull').addEventListener('click', e=>{
+  if(openExternal(location.origin + '/full')) e.preventDefault();
+});
+
+/* 同步按钮 */
+$('#btnSync').onclick = ()=>{
+  const btn = $('#btnSync');
+  btn.textContent = '… 同步中';
+  fetch('/api/sync').then(r=>r.json()).then(()=>{
+    setTimeout(()=>{
+      fetch('/api/data').then(r=>r.json()).then(d=>{ render(d, false); btn.textContent = '⟳ 同步'; })
+        .catch(()=>{ btn.textContent = '⟳ 同步'; });
+    }, 6000);
+    setTimeout(()=>{ btn.textContent = '⟳ 同步'; }, 20000);
+  }).catch(()=>{ btn.textContent = '⟳ 同步'; });
+};
+</script>
+</body>
+</html>

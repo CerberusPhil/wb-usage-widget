@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkBuddy 积分看板 · SERVER BILLING</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAKb0lEQVR4nF2XC5BcVZnHf+dx7+3umc5MkslMXpAQCBAmTxATgWDAiMAuFODKLIta4gvLWD4oo5SKyLOIoFKwbBEtFBfX8KgQXbUoNwsE1ISHRSAkRRIDIQmQTJ6T6Znuvq9zrHNuzwx6b93uc0/3/d7///dd8fjjVl19tcittRduWrvvxvWP7Fiy57Wj7bUjicgTi80t7hAIRg63M3Ln9q27sZbiBCklSZKQYahWSggF1a7IzlgwYeiiT57+wuKPT7tLCPGM0+3lWGu/+OhNWx9Ye98WPTQ4TID0QpAjSsY+Rw+vtLUrvH6ssEghaCQZMxZrqpUqm589RDWIyFJDjqV9XBsf/9r8rO/W3hVCiJ9qa+35a25+dfXq2zdSVTovhUo5l6yTOOqxO8cMEC3lXnHhgV+7/TSTVHuP8r3f9jG9Zwb3fukZfrt6G+PLbWgD9eFa/l+3PaetyFdba7frjevevOXJu1+nXatcCqEyk/uwjukQ/ttiRtMwkoIxG4uFtJph3U/f3QHTe06gVhvm6w8uY3ggZv1jO+gsVZAS1SZkvvbuLerEhe23yA1rdi0eaAxaJYUy1oz6a1qfReDG7vzamrG1WwkDMqeZCqZcsZWlF59BsyZBWOI444aHLuTUeV3UmnWQBq2EOtYYsM+u2blYvvnqobIUiLwltFCVt66R0+3m0Pp1RPGogTbH5IK00s/irx6jx55DRozWmiwzlNtCVv5yOaoEqUnIbYYUVry5+XBZHjkw5GvNeT8mdMzj95tVrPJ/2jdYmZNmIR3LXuGsJfNR9Q7QqU+U1pJGPWb2oslc++0PMJAO+SgIDEcPDiGTOHfJ8x6OqH9/uEe+nfdFBP7xcs+qQJDQpP2815mlLiU3Dg2yKFYBUknSNOMTK8/mhBnjGIqHURHEcYLMzViOxyIwcjeyGvnHWIUIab3yetLk2HDMIG8x+/Q5TLIfJJcJAjVazFIK8txQaYv49Pc/RMPWGWgO+WiKi9S970fYPwF9rMq9KIc2ly8JQ3HTCzhtfg/LPnE6Z148hRmndxPowJvo+MAVoYOKEALhHrSgQ832l9/lZzdv4E9P7RwxoIDR+5H/j0YUBiglacYpDWIWnTudq284m8WXzKJcjny0kjhrPWvBSAIdooJCgskhyzIfvSgK/d6GdVsRy9WPrQ+nN6JImueVgmFGTXHKj8d1Jk+p8rnbl/KxT/cSaE2jGZNnFqmEwzg2F5SjCJThSLaXI4cGCWyJrq7xVMOJPnzNRoIKnIEax0jYTJM59vNkYzwqpHZKhQ9llucciWssv2IO37j/Y3RP76Beb+IKWGmBDgTWWEJZQkaw4+hfWPur53h9XUxjdztB2kbHpDJnfKSTy1fM5ZRZs0mSlDhOEUu5y8rOA1SnJShZJh8qkxwr0RwQxKSkZL43XH/rBXzmpvO9MXEjQweuygXGGDQhQUnSn2zn0V//nj/+pJ9ky4m0M4FAKtdZMEaSkKInDnH9z+dw0eXnkcQpeuqFu1nxi15mTFxMKMZhkxLxcUWt33B4X42dW9/j5Dk9LL96AfVG0ycpCJVnQ3JFuRxSp58nnvoDT6zaxtHneuhkLuWSxdqkFc/CiKrWmKOTuP8/ttK9qZ2F8xYirr3qGnvP2q8woXYOqUx8LpULv3ZAUqOF6EKutEuyxRpBqewKqc7Tr/w/j6zayK51ZarpVKLIJdGlUiI9EBRYibQSJZRnx7iu6Vk6wKqnL0Ms61lhv/VyG8t77qKR1JBSI3yDH0OAa83OMDcblEJXYJYtb2/i4XvX8/IvYkqD02mLQnIyMAIh3YwgSHMIlSRwpJQ7XnBxUAQqoNZIufg2hY77Z/LCxv/lvL630fEJWJF6Aa74PH59NzS+0wVlybvHd/DIg0/xf/+5H/NOD+ODqVDKyUxaEI8CExiiRXs5efle9m+cSn3TLMK0DJn1M0NmMsqBZsOdMTqkyou/tGzre5APiFXEookUDrxjykMZEesj/Prx3/HEHTsZ2NJBpzwZWcoxJvWYd94VAVOYrkOce98G5i6os//AOzzZJ8lfOQ0tJMb3cEdUOTItIQMVc2D9PH7z54dotr+DykutP7h0G7SIOGz+xg1fu5PVffvIt8xkYqkTdObJRVjpOaMw1xkiEKWc8viEgUwxaXLM/BXbaZQGEcUA1qIqgZUGaWRMWzaD392U8EJ6ByWlC/pxTQRFFhzl9lsf4LX7uumOpqKiFD+0uDQp6YUKUfC+z7CrlXe7efXh2QhdZzgxLLj8EOMveJvUuh4y0iF8l0DmJqMSRAxu+CD3/PAhDpU2EdoyWZ4SRJqn/rqWl+8P6Qomkdom1hWohjiMqVdqZMogtROpfQMi15RNiX3/fRa7N3cigiZhaFj4+bdIK3Vky9gR1pW+w5uMaaV5bLhTsurhW1BRjjIRGcdZ/9gWosHpGNUs6sLp6Bii93svcvm6p5lwxTYSnXmIOuEObtIowv7JvHbPEuqmiZLHEcoNIUFhZCtV7tCuaWW2QZuZSns6k62PAZ+RBEpwKN/LvtditAgwNvf9PcsU1TPfY+nK7XRSoePUrTyxsxP7xqkoq4qacDyhBI31C3nuy4aJ8w6wZ80iKnFHwS0FnXgjtMO0Sd1YZRmfn8XU6QUC3BHnwyT1dHQG9GSioHGwwuH3NHRZJk82zP/yTjZ/4wQ6RCdkrTkgl5TjkKH/uYABa4iUQpmRCQWEUSTRMDIoW5+CTNSpciK1NyZhrBunYFzYQbk7IROJn4aMm0GkJX5jCi89eAoirJMkikX/1k/H0t1kRqBkKxXOtyygIgPG6RKRDX0kwyCgJKsM2yFOvHYPcuLUNlKRYoUhpUnvhRP88JDkKZ3MYu6ydobt0cJyYbGZoGJL7H1kIX97aRw6rDOhPeXkS98jy10H1Sih0e6SGimK+yBQlMISKm/jWLiP3m/u4Vs/ugJ52pk9jdQmNksklZP2cPF3Kp42rU7ARPRdcxnRzHdJU+mNdC8tPseHJ/HXW5ewd4/inf2a/c/MpKwjpFWFAUqjA+WvKNIEokLdDiHO3Uzfrww33f452xWc0tAfvWbhi8/+Ztuy2nCaRz37lXQl4DyRiiTNmDvpEq787ks8+oUjdIuu4m0olwRSk/7lDP74L1MKBOyb5jnEUbYbXhwfuJYtbUg9HUactotzPiv4139fxrT2+W4QVbGJX5RLL+29+VMrz2fQ1tSBt+r5geN7IWhVqTLkqeK66z7FtPP7qTfdXqtJZYowLRG9PYNo1yzKWQVtArRUPtyhKpHGgnr3W/Su3MPKJxdw/eevY1p5fp6mqXKDXUR0sxZCPG+tvV7Z8gO33fOmfuyh9Vy2MkEaXWDeJkxQs1lx33n84MObsfU5o2wmjMt1K+Q2QEkXeuXHssb4fk66coBLvjibRbPPBsrkqcEEh1VNHMyCePKKsFx5XvtXZCF+aq3dddKC6o1rnv3Jkt0Hd7SfNHGucB3Ov2rHOR9dcBXPf2UXz98xzITSuKLtOszTKjQCtAg9U0ZLdnLljZ1csPQqNONJE+O6rEWmQ3Vz8AWZdN81rjzxGWut+jujDgPVG9UKYgAAAABJRU5ErkJggg==">
+<style>
+  /* ===== 主题系统（账单真值版）：WB 浅色为默认，body[data-theme] 切换 ===== */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:Consolas,"Courier New","Microsoft YaHei",monospace;
+         color:var(--text); padding:24px 28px;
+         background-color:var(--bg);
+         background-image:linear-gradient(var(--grid) 1px, transparent 1px),
+                          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+         background-size:28px 28px; }
+  body::after { content:''; position:fixed; inset:0; pointer-events:none; z-index:99;
+         background:repeating-linear-gradient(0deg, var(--scan) 0, var(--scan) 1px, transparent 1px, transparent 3px); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- 主题定义 ---------- */
+  body, body[data-theme="wb"] {            /* WB 风格（浅色 · 青绿）— 默认 */
+    --bg:#f6f8f9; --grid:rgba(0,0,0,.028); --scan:transparent;
+    --panel:#ffffff; --pborder:#e4e9ed;
+    --card-a:#ffffff; --card-b:#fafcfc;
+    --accent:#00ad91; --accent2:#00c9a7; --glow2:rgba(0,201,167,.22);
+    --bright:#0b7a68; --mid:#5c7280; --dim:#7c8f9c; --faint:#9aacb8;
+    --text:#24343f; --alert:#e5484d; --glow:rgba(0,180,151,.18);
+    --hz-a:#00c39a; --hz-b:#eef4f2;
+    --c1:#d9f6ee; --c2:#9fe8d4; --c3:#4fd1ac; --c4:#00b894; --c5:#00856e;
+    --nodata:#eef2f4; --nodata-bd:#e0e7ea;
+    --row-bd:#eef2f4; --th-bd:#d8e2e6; --hover:rgba(0,180,151,.05);
+    --tag-bg:rgba(0,180,151,.08); --tip-bg:#ffffff;
+    --cn:rgba(24,52,45,.72); --cns:none; --cn-hi:#ffffff;
+    --tag-fg:#ffffff; --opt-bg:#ffffff; --opt-fg:#24343f;
+  }
+  body[data-theme="magi"] {
+    --bg:#0b0b0c; --grid:rgba(255,158,27,.045); --scan:rgba(0,0,0,.16);
+    --panel:rgba(17,15,9,.92); --pborder:#3a2f12;
+    --card-a:#141208; --card-b:#0e0d08;
+    --accent:#ffb300; --accent2:#ffd23d; --glow2:rgba(255,210,61,.35);
+    --bright:#ffcf4d; --mid:#c9a44e; --dim:#b08a3e; --faint:#9a7c3a;
+    --text:#e8dcc0; --alert:#ff2a2a; --glow:rgba(255,158,27,.35);
+    --hz-a:#d19a12; --hz-b:#141005;
+    --c1:#33230a; --c2:#6b4a08; --c3:#a86f04; --c4:#ff9e1b; --c5:#ffd23d;
+    --nodata:#191713; --nodata-bd:#232017;
+    --row-bd:#1c1810; --th-bd:#4a3b14; --hover:rgba(255,158,27,.05);
+    --tag-bg:rgba(255,158,27,.07); --tip-bg:#050505;
+    --cn:rgba(255,255,255,.85); --cns:0 1px 2px rgba(0,0,0,.55); --cn-hi:rgba(10,10,10,.7);
+    --tag-fg:#0a0a0a; --opt-bg:#14110a; --opt-fg:#e8dcc0;
+  }
+  body[data-theme="eva01"] {
+    --bg:#0a0a12; --grid:rgba(155,89,240,.05); --scan:rgba(0,0,0,.16);
+    --panel:rgba(18,14,34,.92); --pborder:#3d2a6e;
+    --card-a:#16102a; --card-b:#0e0a1c;
+    --accent:#a05cff; --accent2:#9eff00; --glow2:rgba(158,255,0,.45);
+    --bright:#d8ffb0; --mid:#8ed03f; --dim:#74b03c; --faint:#63a03c;
+    --text:#b8f04a; --alert:#9eff00; --glow:rgba(155,89,240,.4);
+    --hz-a:#9eff00; --hz-b:#0d0818;
+    --c1:#1c1233; --c2:#331f5c; --c3:#55308f; --c4:#a05cff; --c5:#b8ff33;
+    --nodata:#161228; --nodata-bd:#241d3d;
+    --row-bd:#1d1733; --th-bd:#3f2d6e; --hover:rgba(155,89,240,.06);
+    --tag-bg:rgba(155,89,240,.08); --tip-bg:#070510;
+    --cn:rgba(255,255,255,.85); --cns:0 1px 2px rgba(0,0,0,.55); --cn-hi:rgba(10,10,10,.7);
+    --tag-fg:#0a0a0a; --opt-bg:#14110a; --opt-fg:#e8dcc0;
+  }
+  body[data-theme="eva02"] {
+    --bg:#100a0a; --grid:rgba(255,68,64,.05); --scan:rgba(0,0,0,.16);
+    --panel:rgba(26,13,13,.92); --pborder:#5e1f1f;
+    --card-a:#1a0d0d; --card-b:#120808;
+    --accent:#ff4340; --accent2:#ffd23d; --glow2:rgba(255,210,61,.45);
+    --bright:#ffb8a5; --mid:#e0958a; --dim:#cc857c; --faint:#a86e66;
+    --text:#f0dcd5; --alert:#ffd23d; --glow:rgba(255,67,64,.4);
+    --hz-a:#ffd23d; --hz-b:#141005;
+    --c1:#2e0c0c; --c2:#5c1414; --c3:#a01c1c; --c4:#ff3b3b; --c5:#ffd23d;
+    --nodata:#1c1010; --nodata-bd:#2e1a1a;
+    --row-bd:#241313; --th-bd:#5e1f1f; --hover:rgba(255,59,59,.06);
+    --tag-bg:rgba(255,59,59,.07); --tip-bg:#0d0505;
+    --cn:rgba(255,255,255,.85); --cns:0 1px 2px rgba(0,0,0,.55); --cn-hi:rgba(10,10,10,.7);
+    --tag-fg:#0a0a0a; --opt-bg:#14110a; --opt-fg:#e8dcc0;
+  }
+  body[data-theme="eva00"] {
+    --bg:#0a0d12; --grid:rgba(77,159,255,.05); --scan:rgba(0,0,0,.16);
+    --panel:rgba(10,18,32,.92); --pborder:#23415f;
+    --card-a:#0d1524; --card-b:#080e1a;
+    --accent:#4d9fff; --accent2:#b8dcff; --glow2:rgba(184,220,255,.4);
+    --bright:#cfe6ff; --mid:#9dc2e2; --dim:#7fa9d2; --faint:#6b93b8;
+    --text:#e2ecf5; --alert:#ff3b3b; --glow:rgba(77,159,255,.4);
+    --hz-a:#d03535; --hz-b:#0a0d12;
+    --c1:#0d1f33; --c2:#16324f; --c3:#1f4a78; --c4:#2f6fb0; --c5:#6fb3ff;
+    --nodata:#0f1725; --nodata-bd:#1a2740;
+    --row-bd:#132035; --th-bd:#23415f; --hover:rgba(77,159,255,.06);
+    --tag-bg:rgba(77,159,255,.08); --tip-bg:#050a12;
+    --cn:rgba(255,255,255,.85); --cns:0 1px 2px rgba(0,0,0,.55); --cn-hi:rgba(10,10,10,.7);
+    --tag-fg:#0a0a0a; --opt-bg:#14110a; --opt-fg:#e8dcc0;
+  }
+  body[data-theme="nerv"] {
+    --bg:#070707; --grid:rgba(230,0,18,.05); --scan:rgba(0,0,0,.16);
+    --panel:rgba(20,12,12,.92); --pborder:#571716;
+    --card-a:#140c0c; --card-b:#0a0707;
+    --accent:#e60012; --accent2:#ff1a2e; --glow2:rgba(255,26,46,.5);
+    --bright:#ff2837; --mid:#c9b5b2; --dim:#b09a97; --faint:#8f7c79;
+    --text:#e8e0dc; --alert:#ff2a2a; --glow:rgba(230,0,18,.45);
+    --hz-a:#e60012; --hz-b:#0c0606;
+    --c1:#230606; --c2:#4d0d0c; --c3:#8a0f1c; --c4:#ba0c1c; --c5:#ff1a2e;
+    --nodata:#161010; --nodata-bd:#2a1717;
+    --row-bd:#221111; --th-bd:#571716; --hover:rgba(230,0,18,.07);
+    --tag-bg:rgba(230,0,18,.08); --tip-bg:#080505;
+    --cn:rgba(255,255,255,.85); --cns:0 1px 2px rgba(0,0,0,.55); --cn-hi:rgba(10,10,10,.7);
+    --tag-fg:#0a0a0a; --opt-bg:#14110a; --opt-fg:#e8dcc0;
+  }
+
+  /* 浅色主题下语义色加深 */
+  body[data-theme="wb"] .p-green { color:#059669; }
+  body[data-theme="wb"] .p-yellow { color:#b7791f; }
+  body[data-theme="wb"] .p-orange { color:#c05621; }
+  body[data-theme="wb"] .p-red { color:#dc2626; }
+  body[data-theme="wb"] .p-gray { color:#94a3b8; }
+
+  /* ---------- 动效 ---------- */
+  @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  .cards, .panel, footer { animation: rise .45s ease both; }
+  body, .magi-card, .panel, .cal-cell, .calbtn, .dbtn, .magi-tag, .model-tag, .progress, .progress > i,
+  th, td, #tooltip, .seg .sg, .tbtn {
+    transition: background-color .22s ease, border-color .22s ease, color .22s ease;
+  }
+  .scroll { animation: fadein .3s ease; }
+  .mfill { transition: width 1.1s cubic-bezier(.22,1,.36,1), background-color .22s ease; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+
+  /* ---------- header ---------- */
+  header { display:flex; align-items:baseline; gap:14px; margin-bottom:10px; flex-wrap:wrap; }
+  header h1 { font-size:calc(20px * var(--fs,1)); font-weight:700; letter-spacing:2px; color:var(--accent); }
+  header h1 .dot { display:inline-block; width:9px; height:9px; background:var(--alert); border-radius:50%;
+                   margin-left:8px; vertical-align:2px; animation:blink 1.3s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:.12; } }
+  header .sub { font-size:calc(12px * var(--fs,1)); color:var(--dim); letter-spacing:1px; font-weight:600; }
+  header .refreshed { margin-left:auto; font-size:calc(11px * var(--fs,1)); color:var(--faint); font-weight:600; }
+  #refreshBtn { cursor:pointer; font-family:inherit; font-weight:600; background:transparent; color:var(--bright);
+                border:1px solid var(--dim); border-radius:2px; padding:3px 12px; font-size:calc(12px * var(--fs,1));
+                letter-spacing:1px; }
+  #refreshBtn:hover { background:var(--accent); color:var(--bg); }
+  .theme-label { font-size:calc(10px * var(--fs,1)); letter-spacing:2px; color:var(--mid); font-weight:600; }
+  .themebar { display:inline-flex; gap:4px; align-items:center; }
+  .tbtn { cursor:pointer; font-family:inherit; font-weight:600; font-size:calc(11px * var(--fs,1)); letter-spacing:1px;
+          background:transparent; color:var(--mid); border:1px solid var(--dim); border-radius:2px;
+          padding:3px 9px; display:inline-flex; align-items:center; gap:5px; }
+  .tbtn .tdot { width:8px; height:8px; border-radius:2px; display:inline-block; flex:none; }
+  .tbtn:hover { color:var(--bright); border-color:var(--accent); }
+  .tbtn.on { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+  #dSel option { background:var(--opt-bg); color:var(--opt-fg); }
+  .hazard { height:8px; margin-bottom:20px; border:1px solid var(--pborder);
+            background:repeating-linear-gradient(-45deg, var(--hz-a) 0 10px, var(--hz-b) 10px 20px); opacity:.85; }
+
+  /* ---------- MAGI 卡片 ---------- */
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-bottom:22px; }
+  .magi-card { position:relative; background:linear-gradient(180deg,var(--card-a),var(--card-b));
+               border:1px solid var(--pborder); padding:14px 16px 12px; display:block; }
+  .magi-card::before, .magi-card::after { content:''; position:absolute; width:11px; height:11px; }
+  .magi-card::before { top:-1px; left:-1px; border-top:2px solid var(--accent2); border-left:2px solid var(--accent2); }
+  .magi-card::after  { bottom:-1px; right:-1px; border-bottom:2px solid var(--accent2); border-right:2px solid var(--accent2); }
+  .magi-tag { display:inline-block; font-size:calc(10px * var(--fs,1)); letter-spacing:2px; color:var(--tag-fg);
+              background:var(--accent2); padding:1px 8px; margin-bottom:8px; font-weight:700; }
+  .magi-card .pattern { position:absolute; top:12px; right:14px; font-size:calc(10px * var(--fs,1)); letter-spacing:1.5px; font-weight:700; }
+  .magi-card .label { font-size:calc(11px * var(--fs,1)); color:var(--dim); margin-bottom:6px; letter-spacing:1px; font-weight:600; }
+  .magi-card .value { font-size:calc(32px * var(--fs,1)); font-weight:700; line-height:1.05; color:var(--accent2);
+                      text-shadow:0 0 12px var(--glow2); }
+  .magi-card .unit { font-size:calc(12px * var(--fs,1)); font-weight:600; color:var(--dim); margin-left:4px; }
+  .magi-card .note { font-size:calc(11px * var(--fs,1)); color:var(--mid); margin-top:6px; font-weight:600; }
+  .p-green { color:#3dff8b; } .p-yellow { color:#ffd23d; } .p-orange { color:#ff9e1b; } .p-red { color:#ff3b3b; } .p-gray { color:#55503f; }
+  /* 卡片可点击切换（积分 ⇄ Token） */
+  .magi-card.flipable { cursor:pointer; transition:border-color .15s; }
+  .magi-card.flipable:hover { border-color:var(--accent2); }
+  /* 折叠说明（details：来源拆分口径 / 页脚细则） */
+  .moreinfo { margin-top:10px; }
+  .moreinfo > summary { display:inline-block; cursor:pointer; list-style:none; font-size:calc(10.5px * var(--fs,1));
+                        color:var(--faint); font-weight:600; letter-spacing:.5px; border:1px dashed var(--dim);
+                        border-radius:2px; padding:0 8px; }
+  .moreinfo > summary::-webkit-details-marker { display:none; }
+  .moreinfo > summary::marker { content:''; }
+  .moreinfo > summary:hover { color:var(--accent2); border-color:var(--accent2); }
+  .moreinfo[open] > summary { color:var(--accent2); }
+  .mi-body { margin-top:7px; font-size:calc(11px * var(--fs,1)); color:var(--faint); line-height:1.75; }
+  .mi-body b { color:var(--mid); }
+  .mi-inline { margin-top:0; margin-left:10px; vertical-align:1px; display:inline-block; }
+  .mi-inline > summary { padding:0 7px; }
+
+  .balance-card { text-decoration:none; cursor:pointer; transition:border-color .15s; }
+  .balance-card:hover { border-color:var(--accent2); }
+  .balance-card:hover .pattern { color:var(--accent2); }
+  .progress { height:6px; background:var(--nodata); border:1px solid var(--nodata-bd); margin-top:9px; }
+  .progress > i { display:block; height:100%; background:var(--accent2); }
+
+  h2 { font-size:calc(13px * var(--fs,1)); font-weight:700; margin:24px 0 10px; color:var(--accent); letter-spacing:1.5px; }
+  h2::before { content:'// '; color:var(--accent2); }
+  h2 .hint { font-weight:500; color:var(--dim); font-size:calc(11px * var(--fs,1)); letter-spacing:0; }
+  .seg { display:inline-flex; border:1px solid var(--dim); border-radius:2px; overflow:hidden; margin-left:12px; vertical-align:1px; }
+  .seg .sg { font-size:calc(11px * var(--fs,1)); padding:1px 10px; cursor:pointer; color:var(--mid); letter-spacing:1px; font-weight:600; }
+  .seg .sg.on { background:var(--accent); color:var(--bg); font-weight:700; }
+  .panel { position:relative; background:var(--panel); border:1px solid var(--pborder); padding:16px 18px; }
+
+  /* ---------- 热力日历 ---------- */
+  .calwrap { display:flex; align-items:center; gap:14px; }
+  .calbtn { flex:none; width:36px; height:72px; background:transparent; color:var(--accent);
+            border:1px solid var(--dim); border-radius:2px; cursor:pointer; font-size:calc(15px * var(--fs,1));
+            font-family:inherit; align-self:center; }
+  .calbtn:hover { background:var(--accent); color:var(--bg); }
+  .calbtn.off { opacity:.22; pointer-events:none; }
+  .calbox { flex:1; max-width:600px; margin:0 auto; }
+  .cal-group { margin-bottom:4px; animation: fadein .28s ease; }
+  .cal-title { font-size:calc(12px * var(--fs,1)); color:var(--mid); letter-spacing:2px; font-weight:700; margin:4px 0 8px; }
+  .cal-title::after { content:' ────────────'; color:var(--pborder); letter-spacing:0; }
+  .cal-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; margin-bottom:6px; }
+  .cal-head span { font-size:calc(10px * var(--fs,1)); color:var(--faint); text-align:center; font-weight:600; letter-spacing:1px; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
+  .cal-cell { position:relative; height:54px; border-radius:2px; cursor:pointer; }
+  .cal-cell .dnum { position:absolute; top:4px; left:6px; font-size:calc(11px * var(--fs,1)); font-weight:600;
+                    color:var(--cn); text-shadow:var(--cns); }
+  .cal-cell:hover { outline:1px solid var(--text); outline-offset:1px; }
+  .cal-cell.void { background:transparent; cursor:default; }
+  .cal-cell.void:hover { outline:none; }
+  .cal-cell.nodata { background:var(--nodata); border:1px solid var(--nodata-bd); }
+  .cal-cell.free { background:transparent; border:1px solid var(--accent2); }
+  .cal-cell.free .dnum { color:var(--accent2); text-shadow:none; }
+  .cal-cell.today { box-shadow:inset 0 0 0 2px var(--alert); }
+  .cal-cell.h1 { background:var(--c1); } .cal-cell.h2 { background:var(--c2); } .cal-cell.h3 { background:var(--c3); }
+  .cal-cell.h4 { background:var(--c4); } .cal-cell.h5 { background:var(--c5); }
+  .cal-cell.h3 .dnum, .cal-cell.h4 .dnum, .cal-cell.h5 .dnum { color:var(--cn-hi); text-shadow:none; }
+  .cal-sep { border-top:1px dashed var(--dim); margin:12px 0 10px; opacity:.65; }
+  .cal-foot { display:flex; align-items:center; gap:14px; margin-top:14px; flex-wrap:wrap; }
+  .cal-range { font-size:calc(11px * var(--fs,1)); color:var(--faint); font-weight:600; letter-spacing:1px; flex:none; }
+
+  .legend { display:flex; align-items:center; gap:4px; font-size:calc(11px * var(--fs,1)); color:var(--mid); font-weight:600; flex-wrap:wrap; }
+  .cell { width:12px; height:12px; border-radius:1px; }
+  .c1 { background:var(--c1); } .c2 { background:var(--c2); } .c3 { background:var(--c3); } .c4 { background:var(--c4); } .c5 { background:var(--c5); }
+  .lg-free { display:inline-block; width:12px; height:12px; border:1px solid var(--accent2); }
+  .lg-today { display:inline-block; width:12px; height:12px; box-shadow:inset 0 0 0 2px var(--alert); }
+
+  /* ---------- tooltip ---------- */
+  #tooltip { position:fixed; display:none; background:var(--tip-bg); color:var(--text); font-size:calc(12px * var(--fs,1));
+             border:1px solid var(--accent); border-radius:2px; padding:9px 12px; pointer-events:none; z-index:50; max-width:300px;
+             box-shadow:0 0 18px var(--glow); line-height:1.55; font-weight:600; }
+  #tooltip .tt-title { font-weight:700; margin-bottom:3px; color:var(--accent2); letter-spacing:1px; }
+  #tooltip .mrow { display:flex; justify-content:space-between; gap:14px; }
+  #tooltip .mrow .mv { color:var(--accent2); }
+
+  /* ---------- 详单 ---------- */
+  .detail-title { display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .detail-title b { font-size:calc(14px * var(--fs,1)); color:var(--accent2); letter-spacing:1px; }
+  .detail-title .sum { font-size:calc(12px * var(--fs,1)); color:var(--mid); font-weight:600; }
+  .dnav { margin-left:auto; display:flex; align-items:center; gap:6px; }
+  .dbtn { width:28px; height:24px; background:transparent; color:var(--accent); border:1px solid var(--dim);
+          border-radius:2px; cursor:pointer; font-size:calc(11px * var(--fs,1)); font-family:inherit; }
+  .dbtn:hover { background:var(--accent); color:var(--bg); }
+  .dbtn.off { opacity:.22; pointer-events:none; }
+  #dSel { cursor:pointer; font-family:inherit; font-weight:600; background:transparent; color:var(--bright);
+          border:1px solid var(--dim); border-radius:2px; padding:2px 8px; font-size:calc(12px * var(--fs,1)); letter-spacing:.5px; }
+  .cal-cell.viewed { outline:2px solid var(--text); outline-offset:1px; }
+  table { width:100%; border-collapse:collapse; font-size:calc(12.5px * var(--fs,1)); }
+  th { text-align:left; color:var(--dim); font-weight:700; font-size:calc(10.5px * var(--fs,1)); letter-spacing:1.5px;
+       padding:5px 8px; border-bottom:1px solid var(--th-bd); text-transform:uppercase; }
+  td { padding:5px 8px; border-bottom:1px solid var(--row-bd); color:var(--text); font-weight:600; }
+  tr:hover td { background:var(--hover); }
+  tr.free-row td { opacity:.62; }
+  td.r, th.r { text-align:right; }
+  .scroll { max-height:340px; overflow-y:auto; }
+  .scroll::-webkit-scrollbar { width:8px; } .scroll::-webkit-scrollbar-thumb { background:var(--th-bd); }
+  .model-tag { display:inline-block; font-size:calc(11px * var(--fs,1)); padding:1px 7px; border-radius:1px;
+               border:1px solid var(--dim); color:var(--accent2); background:var(--tag-bg); font-weight:600; white-space:nowrap; }
+  .free-tag { font-size:calc(10px * var(--fs,1)); letter-spacing:1px; color:var(--mid); border:1px solid var(--dim); padding:0 5px; border-radius:1px; }
+  td.inp { max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--mid);
+           font-size:calc(11.5px * var(--fs,1)); font-weight:500; }
+
+  /* ---------- 模型分布 ---------- */
+  .mrowline { display:flex; align-items:center; gap:10px; margin:7px 0; }
+  .mname { width:170px; font-size:calc(12px * var(--fs,1)); color:var(--text); text-align:right; flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .mtrack { flex:1; background:var(--nodata); border:1px solid var(--nodata-bd); border-radius:1px; height:16px; overflow:hidden; }
+  .mfill { height:100%; border-radius:1px; }
+  .mval { width:170px; font-size:calc(11.5px * var(--fs,1)); color:var(--mid); flex:none; font-weight:600; }
+
+  /* ---------- 来源拆分（对账：本机 vs 其他端） ---------- */
+  .sbar { display:flex; height:18px; border:1px solid var(--nodata-bd); background:var(--nodata); overflow:hidden; margin:2px 0 12px; }
+  .sbar > i { display:block; height:100%; }
+  .slegend { display:flex; flex-wrap:wrap; gap:6px 20px; font-size:calc(11.5px * var(--fs,1)); color:var(--mid); font-weight:600; }
+  .slegend .k { display:inline-block; width:10px; height:10px; border-radius:1px; margin-right:6px; vertical-align:-1px; }
+  .slegend b, .snote2 b { color:var(--text); }
+  .snote2 { font-size:calc(11px * var(--fs,1)); color:var(--faint); line-height:1.7; margin-top:8px; }
+
+  /* ---------- 会话视图（按会话 · 本机 jsonl） ---------- */
+  .stotals { font-size:calc(12.5px * var(--fs,1)); color:var(--mid); font-weight:600; margin-bottom:5px; }
+  .stotals b { color:var(--accent2); }
+  .snote { font-size:calc(11px * var(--fs,1)); color:var(--faint); line-height:1.7; margin-bottom:10px; }
+  .sscroll { max-height:560px; overflow-y:auto; }
+  .sscroll::-webkit-scrollbar { width:8px; }
+  .sscroll::-webkit-scrollbar-thumb { background:var(--th-bd); }
+  .sess { border-bottom:1px solid var(--row-bd); padding:9px 4px; cursor:pointer; }
+  .sess.sdayrow { cursor:default; padding:7px 4px; }
+  .sess:hover { background:var(--hover); }
+  .sess:last-child { border-bottom:none; }
+  .shead { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .sarrow { color:var(--accent); font-size:calc(11px * var(--fs,1)); }
+  .stitle { color:var(--bright); font-size:calc(13px * var(--fs,1)); font-weight:700; letter-spacing:.5px; }
+  .ssid { color:var(--faint); font-size:calc(11px * var(--fs,1)); font-weight:600; }
+  .srange { margin-left:auto; color:var(--mid); font-size:calc(11px * var(--fs,1)); font-weight:600; }
+  .schips { margin:6px 0 0 20px; display:flex; gap:5px; flex-wrap:wrap; }
+  .schips .model-tag.more { color:var(--mid); border-style:dashed; }
+  .sstats { margin:7px 0 0 20px; color:var(--mid); font-size:calc(11.5px * var(--fs,1)); font-weight:600; }
+  .sstats b { color:var(--text); }
+  .strack { display:inline-block; width:70px; height:8px; background:var(--nodata); border:1px solid var(--nodata-bd); vertical-align:-1px; margin:0 5px; overflow:hidden; }
+  .sfill { display:block; height:100%; background:var(--accent2); width:0; transition:width 1.1s cubic-bezier(.22,1,.36,1); }
+  .sdetail { margin:9px 0 2px 20px; animation:fadein .3s ease; }
+  .sdetail table { font-size:calc(11.5px * var(--fs,1)); }
+  .sdetail th { font-size:calc(10px * var(--fs,1)); padding:3px 6px; }
+  .sdetail td { padding:3px 6px; }
+  .sdetail .model-tag { font-size:calc(10.5px * var(--fs,1)); }
+
+  /* 子代理标记 / Token 占比条 / 分页 / Token 口径注 */
+  .subtag { display:inline-block; font-size:calc(10px * var(--fs,1)); padding:0 6px; border:1px dashed var(--dim); border-radius:1px; color:var(--mid); letter-spacing:1px; font-weight:600; }
+  .stokrow { margin:7px 0 0 20px; display:flex; align-items:center; gap:8px; }
+  .stoklab { font-size:calc(11px * var(--fs,1)); color:var(--faint); font-weight:600; flex:none; }
+  .stoktrack { flex:1; max-width:430px; height:10px; background:var(--nodata); border:1px solid var(--nodata-bd); overflow:hidden; }
+  .stokfill { display:block; height:100%; width:0; background:var(--accent); transition:width 1.1s cubic-bezier(.22,1,.36,1); }
+  .stokval { font-size:calc(11px * var(--fs,1)); color:var(--mid); font-weight:600; flex:none; }
+  .ssel { cursor:pointer; font-family:inherit; font-weight:600; background:transparent; color:var(--bright);
+          border:1px solid var(--dim); border-radius:2px; padding:2px 8px; font-size:calc(11px * var(--fs,1)); letter-spacing:.5px; }
+  .ssel option { background:var(--opt-bg); color:var(--opt-fg); }
+  .mtnote { margin-top:10px; font-size:calc(11px * var(--fs,1)); color:var(--faint); }
+  .fsctl { display:inline-flex; align-items:center; gap:4px; }
+  .fbtn { cursor:pointer; font-family:inherit; font-weight:600; font-size:calc(11px * var(--fs,1)); background:transparent;
+          color:var(--mid); border:1px solid var(--dim); border-radius:2px; padding:3px 8px; letter-spacing:1px; }
+  .fbtn:hover { color:var(--bright); border-color:var(--accent); }
+  .fbtn.off { opacity:.25; pointer-events:none; }
+  .fsval { font-size:calc(11px * var(--fs,1)); color:var(--mid); min-width:38px; text-align:center; font-weight:600; }
+
+  footer { margin-top:22px; font-size:calc(11px * var(--fs,1)); color:var(--faint); line-height:1.7; }
+  footer b { color:var(--mid); }
+</style>
+</head>
+<body>
+<header>
+  <h1>MAGI SYSTEM<span class="dot"></span></h1>
+  <span class="sub">WorkBuddy 积分监控 · SERVER BILLING 真值</span>
+  <button id="refreshBtn" onclick="location.reload()" title="重新读取账单缓存并渲染">&#8635; 刷新数据</button>
+  <span class="refreshed num" id="refreshedAt"></span>
+  <span class="theme-label">THEME</span>
+  <span class="themebar" id="themeBar"></span>
+  <span class="theme-label">FONT</span>
+  <span class="fsctl"><button class="fbtn" id="fsDown" onclick="fsStep(-1)" title="缩小字号">A&#8722;</button><span class="fsval num" id="fsVal">110%</span><button class="fbtn" id="fsUp" onclick="fsStep(1)" title="放大字号">A+</button></span>
+</header>
+<div class="hazard"></div>
+
+<section class="cards" id="cards"></section>
+
+<h2>模型消耗 <span class="hint">全部账单期 · ANALYSIS</span>
+  <span class="seg" id="modelSeg">
+    <span class="sg on" data-m="credit" onclick="setModelMetric('credit')">积分</span>
+    <span class="sg" data-m="count" onclick="setModelMetric('count')">次数</span>
+    <span class="sg" data-m="token" onclick="setModelMetric('token')">Token</span>
+  </span>
+</h2>
+<div class="panel" id="modelPanel"></div>
+
+<h2>每日消耗热力 <span class="hint">（30 天窗口 · ◀▶ 翻页 · 悬停看拆分 · 点击看当天详单）</span>
+  <span class="seg" id="heatSeg">
+    <span class="sg on" data-m="credit" onclick="setHeatMetric('credit')">积分</span>
+    <span class="sg" data-m="req" onclick="setHeatMetric('req')">请求数</span>
+    <span class="sg" data-m="token" onclick="setHeatMetric('token')" title="本机 Token（jsonl 口径）">Token</span>
+  </span>
+</h2>
+<div class="panel">
+  <div class="calwrap">
+    <button class="calbtn" id="calPrev" onclick="shiftCal(-1)" title="上一个 30 天">&#9664;</button>
+    <div class="calbox" id="calBox"></div>
+    <button class="calbtn" id="calNext" onclick="shiftCal(1)" title="下一个 30 天">&#9654;</button>
+  </div>
+  <div class="cal-foot">
+    <span class="cal-range" id="calRange"></span>
+    <span class="legend" id="legend"></span>
+  </div>
+</div>
+
+<h2>会话消耗 <span class="hint">会话 × 积分 / Token · SESSION</span>
+  <span class="seg" id="sessSeg">
+    <span class="sg on" data-m="total" onclick="setSessMode('total')">总消耗</span>
+    <span class="sg" data-m="day" onclick="setSessMode('day')">按天</span>
+  </span>
+  <details class="moreinfo mi-inline"><summary>&#9432; 说明</summary>
+    <div class="mi-body">总消耗：按总 Token 降序 · 每页 5 个 · 点击会话展开「按模型」拆分。<br>
+    按天：所选日期各会话消耗（柱状图以当天最高 Token 为 100% 归一，数值为 Token 绝对值）；◀▶ / 下拉切换日期，点日历日期自动联动。<br>
+    口径：Token 为本机 jsonl 视角（服务端不含 token 字段）；会话按 sessionId 跨天合并；标「子代理」的是 Explore / Plan 等子任务的独立会话（标题用首条消息回填）。</div>
+  </details>
+</h2>
+<div class="panel" id="sessionPanel"></div>
+<div class="panel" id="sessDayPanel" style="display:none"></div>
+
+<h2>消耗详单 <span class="hint">按天 · RECORD</span></h2>
+<div class="panel" id="detailPanel"></div>
+
+<h2>来源拆分 <span class="hint">对账 · 本机 vs 其他端 · RECONCILE</span></h2>
+<div class="panel" id="sourcePanel"></div>
+
+<footer id="foot"></footer>
+
+<div id="tooltip"></div>
+
+<script>
+const DATA = /*__DATA__*/;
+const DAYS = DATA.days, DETAILS = DATA.details || {};
+const TOK_DAYS = DATA.token_days || {};
+const $ = s => document.querySelector(s);
+const BALANCE_URL = 'https://www.workbuddy.cn/profile/growth-center';
+
+/* ---------- 工具 ---------- */
+function fmt(n){ return n.toLocaleString('zh-CN'); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+function dkey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const WD = ['周日','周一','周二','周三','周四','周五','周六'];
+function cnDate(dk){ const [y,m,dd] = dk.split('-').map(Number); return `${Number(m)}月${Number(dd)}日 ${WD[new Date(y,m-1,dd).getDay()]}`; }
+/* 数字滚动动画（count-up） */
+function animateNum(el, target, decimals, dur, fmtFn){
+  if(!el) return;
+  dur = dur || 900;
+  const t0 = performance.now();
+  function step(t){
+    const p = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmtFn ? fmtFn(target * e) : (target * e).toFixed(decimals);
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+/* 卡片动画目标（切主题时重播数字滚动；fmtT=Token 模式用万/亿格式化） */
+let cardTargets = null;
+function replayCardNums(){
+  if(!cardTargets) return;
+  const f = cardTargets.fmtT ? (v=>fmtTok(Math.max(0, Math.round(v)))) : null;
+  animateNum($('#vToday'), cardTargets.today, 2, null, f);
+  animateNum($('#vMonth'), cardTargets.month, 2, null, f);
+  if(cardTargets.bal != null) animateNum($('#vBal'), cardTargets.bal, 2);
+}
+
+/* ---------- 主题系统 ---------- */
+const THEMES = ['wb','magi','eva01','eva02','eva00','nerv'];
+const DEFAULT_THEME = 'wb';
+const THEME_LABELS = { wb:'WorkBuddy', magi:'MAGI', eva01:'EVA-01', eva02:'EVA-02', eva00:'EVA-00', nerv:'NERV' };
+const THEME_COLORS = { wb:'#00c9a7', magi:'#ffb300', eva01:'#a05cff', eva02:'#ff4340', eva00:'#4d9fff', nerv:'#e60012' };
+const MODEL_COLORS = {
+  wb:    ['#00c9a7','#00b493','#009e80','#00876d','#00705a','#0b5a4a','#14473b','#18362d','#17251f','#141a17'],
+  magi:  ['#ffd23d','#ff9e1b','#e07f0e','#c26a08','#9c5406','#7a4106','#5e3305','#4a2805','#382005','#2a1804'],
+  eva01: ['#b8ff33','#a05cff','#8a4de8','#7136c9','#5b2aa8','#462186','#36186a','#291252','#1e0d3d','#150929'],
+  eva02: ['#ffd23d','#ff5c47','#ff4340','#f03f30','#cf2f24','#ad241c','#8c1c16','#6e1511','#541010','#3d0b0b'],
+  eva00: ['#b8dcff','#8fc6ff','#6bb0ff','#4d9fff','#3385e6','#256cc4','#1b56a0','#14437e','#0f3361','#0b2650'],
+  nerv:  ['#ff1a2e','#e60012','#cc0010','#ad000e','#8f000b','#730009','#5c0007','#470006','#350004','#260003'],
+};
+function currentTheme(){
+  const t = document.body.dataset.theme;
+  return THEMES.includes(t) ? t : DEFAULT_THEME;
+}
+function setTheme(t){
+  if(!THEMES.includes(t)) t = DEFAULT_THEME;
+  document.body.dataset.theme = t;
+  try{ localStorage.setItem('wb_theme_v1', t); }catch(e){}
+  syncThemeBar();
+  renderModels();
+  replayCardNums();
+}
+/* 主题按钮组（替代下拉） */
+function buildThemeBar(){
+  const bar = $('#themeBar'); if(!bar) return;
+  bar.innerHTML = THEMES.map(t=>
+    `<button class="tbtn" data-t="${t}" onclick="setTheme('${t}')" title="${THEME_LABELS[t]} 主题">
+       <span class="tdot" style="background:${THEME_COLORS[t]}"></span>${THEME_LABELS[t]}</button>`).join('');
+}
+function syncThemeBar(){
+  const cur = currentTheme();
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.toggle('on', b.dataset.t===cur));
+}
+(function restoreTheme(){
+  let t = DEFAULT_THEME;
+  try{ t = localStorage.getItem('wb_theme_v1') || DEFAULT_THEME; }catch(e){}
+  if(THEMES.includes(t)) document.body.dataset.theme = t;
+})();
+
+/* ---------- 卡片（今日 / 本月 / 余额）· 点击切换 积分 ⇄ Token ---------- */
+let cardMetric = 'credit';
+try{ const cm0 = localStorage.getItem('wb_cardmetric'); if(cm0==='token'||cm0==='credit') cardMetric = cm0; }catch(e){}
+function setCardMetric(m){
+  cardMetric = (m==='token') ? 'token' : 'credit';
+  try{ localStorage.setItem('wb_cardmetric', cardMetric); }catch(e){}
+  renderCards();
+}
+function flipCardMetric(){ setCardMetric(cardMetric==='credit' ? 'token' : 'credit'); }
+function renderCards(){
+  const keys = Object.keys(DAYS).sort();
+  const genDay = DATA.generated_at.slice(0,10);
+  const today = DAYS[genDay] || {credit:0, req_n:0, free_n:0};
+  const monthKey = genDay.slice(0,7);
+  let month = 0, monthN = 0, monthFree = 0;
+  keys.forEach(k=>{ if(k.startsWith(monthKey)){ month += DAYS[k].credit; monthN += DAYS[k].req_n; monthFree += DAYS[k].free_n; } });
+  /* 本机 Token（jsonl 视角）：今日 / 本月 */
+  const tokToday = TOK_DAYS[genDay] || {tokens:0, n:0};
+  let tokMonth = 0, tokMonthN = 0;
+  Object.keys(TOK_DAYS).forEach(k=>{ if(k.startsWith(monthKey)){ tokMonth += TOK_DAYS[k].tokens || 0; tokMonthN += TOK_DAYS[k].n || 0; } });
+  const tokMode = cardMetric === 'token';
+  const unitTxt = tokMode ? 'Token' : '积分';
+  const todayTip = `点击切换 积分 ⇄ Token｜今日 ${today.req_n} 次请求 · 免费 ${today.free_n} 次｜本机 Token ${tokToday.n || 0} 次请求（服务端账单不含 token 字段）`;
+  const monthTip = `点击切换 积分 ⇄ Token｜本月 ${monthN} 次请求 · 免费 ${monthFree} 次｜本机 Token ${tokMonthN} 次请求（服务端账单不含 token 字段）`;
+  const todayVal = tokMode ? (tokToday.tokens || 0) : today.credit;
+  const monthVal = tokMode ? tokMonth : month;
+  const b = DATA.balance;
+  let balCard;
+  if(b){
+    const pct = b.total > 0 ? Math.min(100, b.used / b.total * 100) : 0;
+    balCard = `
+      <a class="magi-card balance-card" href="${BALANCE_URL}" target="_blank" rel="noopener noreferrer"
+         title="点击查看成长计划（www.workbuddy.cn）">
+        <div class="magi-tag">CASPER-3</div>
+        <div class="pattern p-gray">BALANCE ↗</div>
+        <div class="label">积分余额 · 点击查看成长计划</div>
+        <div class="value num"><span id="vBal">0.00</span><span class="unit">积分</span></div>
+        <div class="progress"><i style="width:${pct.toFixed(1)}%"></i></div>
+        <div class="note">当前周期已用 ${b.used.toFixed(2)} / ${b.total.toFixed(2)}</div>
+      </a>`;
+  } else {
+    balCard = `
+      <div class="magi-card">
+        <div class="magi-tag">CASPER-3</div>
+        <div class="label">积分余额</div>
+        <div class="value num" style="font-size:22px;color:var(--mid)">未同步</div>
+        <div class="note">运行 server_usage_sync.py 获取</div>
+      </div>`;
+  }
+  $('#cards').innerHTML = `
+    <div class="magi-card flipable" onclick="flipCardMetric()" title="${todayTip}">
+      <div class="magi-tag">MELCHIOR-1</div>
+      <div class="pattern p-gray">TODAY</div>
+      <div class="label">今日消耗（${genDay}）</div>
+      <div class="value num"><span id="vToday">0</span><span class="unit">${unitTxt}</span></div>
+    </div>
+    <div class="magi-card flipable" onclick="flipCardMetric()" title="${monthTip}">
+      <div class="magi-tag">BALTHASAR-2</div>
+      <div class="pattern p-gray">MONTH</div>
+      <div class="label">本月消耗（${monthKey}）</div>
+      <div class="value num"><span id="vMonth">0</span><span class="unit">${unitTxt}</span></div>
+    </div>
+    ${balCard}`;
+  cardTargets = { today: todayVal, month: monthVal, bal: b ? b.remain : null, fmtT: tokMode };
+  replayCardNums();
+  $('#refreshedAt').textContent = 'DATA ' + DATA.generated_at;
+}
+
+/* ---------- 热力日历（30 天窗口 · 月份分组 · 左右翻页） ---------- */
+const CAL_N = 30;
+let heatMetric = 'credit';
+let selected = null;
+let calEnd = null;
+const WD7 = ['一','二','三','四','五','六','日'];
+
+function heatLevel(v, max){ if(v<=0) return 0; const t = Math.log(1+v)/Math.log(1+max); return t<=0.2?1:t<=0.4?2:t<=0.65?3:t<=0.85?4:5; }
+function metricVal(rec, dk){
+  if(heatMetric==='credit') return rec.credit;
+  if(heatMetric==='token') return ((TOK_DAYS[dk]||{}).tokens) || 0;
+  return rec.req_n;
+}
+function dataBounds(){
+  const keys = Object.keys(DAYS).sort();
+  if(!keys.length) return null;
+  return { min: new Date(keys[0].replace(/-/g,'/')), max: new Date(keys[keys.length-1].replace(/-/g,'/')) };
+}
+function clampCalEnd(e){
+  const b = dataBounds(); if(!b) return null;
+  const minEnd = addDays(b.min, CAL_N-1);
+  const lo = (b.max < minEnd) ? b.max : minEnd;
+  if(e.getTime() < lo.getTime()) return lo;
+  if(e.getTime() > b.max.getTime()) return b.max;
+  return e;
+}
+function setHeatMetric(m){
+  heatMetric = m;
+  document.querySelectorAll('#heatSeg .sg').forEach(el=>el.classList.toggle('on', el.dataset.m===m));
+  renderCal();
+}
+function shiftCal(step){
+  if(!calEnd) return;
+  calEnd = clampCalEnd(addDays(calEnd, step*CAL_N));
+  renderCal();
+}
+function renderCal(){
+  const box = $('#calBox');
+  const b = dataBounds();
+  if(!b){ box.innerHTML = '<div style="color:var(--faint);font-size:12px;padding:20px 0">暂无数据</div>'; return; }
+  if(!calEnd) calEnd = b.max;
+  calEnd = clampCalEnd(calEnd);
+  const start = addDays(calEnd, -(CAL_N-1));
+  let cmax = 0;
+  Object.keys(DAYS).forEach(k=>{ const v = metricVal(DAYS[k], k); if(v>cmax) cmax = v; });
+  const groups = [];
+  for(let d = start; d.getTime() <= calEnd.getTime(); d = addDays(d,1)){
+    const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(!groups.length || groups[groups.length-1].mk !== mk) groups.push({ mk, days: [] });
+    groups[groups.length-1].days.push(new Date(d));
+  }
+  const todayKey = DATA.generated_at.slice(0,10);
+  let html = '';
+  groups.forEach((g, gi)=>{
+    const [yy, mm] = g.mk.split('-').map(Number);
+    html += `<div class="cal-group">`;
+    html += `<div class="cal-title">${yy}年${mm}月</div>`;
+    html += `<div class="cal-head">${WD7.map(w=>`<span>${w}</span>`).join('')}</div>`;
+    const first = g.days[0], last = g.days[g.days.length-1];
+    const gridStart = addDays(first, -((first.getDay()+6)%7));
+    const gridEnd = addDays(last, 6-((last.getDay()+6)%7));
+    const inSet = new Set(g.days.map(x=>dkey(x)));
+    let cells = '';
+    for(let d = gridStart; d.getTime() <= gridEnd.getTime(); d = addDays(d,1)){
+      const dk = dkey(d);
+      if(!inSet.has(dk)){ cells += '<div class="cal-cell void"></div>'; continue; }
+      const rec = DAYS[dk];
+      let cls = 'cal-cell';
+      if(rec){
+        const isFree = rec.credit===0 && rec.req_n>0;
+        const v = metricVal(rec, dk);
+        if(isFree && heatMetric==='credit') cls += ' free';
+        else if(v>0) cls += ' h'+heatLevel(v, cmax);
+        else cls += ' nodata';
+      } else {
+        cls += ' nodata';
+      }
+      if(dk===todayKey) cls += ' today';
+      cells += `<div class="${cls}" data-dk="${dk}"><span class="dnum">${d.getDate()}</span></div>`;
+    }
+    html += `<div class="cal-grid">${cells}</div>`;
+    html += `</div>`;
+    if(gi < groups.length-1) html += `<div class="cal-sep"></div>`;
+  });
+  box.innerHTML = html;
+  $('#calRange').textContent = `VIEW ${dkey(start).replace(/-/g,'.')} ~ ${dkey(calEnd).replace(/-/g,'.')}`;
+  const minEnd = addDays(b.min, CAL_N-1);
+  const lo = (b.max < minEnd) ? b.max : minEnd;
+  $('#calPrev').classList.toggle('off', calEnd.getTime() <= lo.getTime());
+  $('#calNext').classList.toggle('off', calEnd.getTime() >= b.max.getTime());
+  let legend = `<span>少</span><div class="cell c1"></div><div class="cell c2"></div><div class="cell c3"></div><div class="cell c4"></div><div class="cell c5"></div>
+     <span>多（${heatMetric==='credit'?'积分':(heatMetric==='token'?'Token':'请求数')}）</span>`;
+  if(heatMetric==='credit') legend += `<span style="margin-left:14px"></span><span class="lg-free"></span><span>免费（0 积分 · 有请求）</span>`;
+  if(heatMetric==='token') legend += `<span style="margin-left:14px"></span><span style="color:var(--faint)">Token 为本机口径 · 无本机记录 = 灰格</span>`;
+  legend += `<span style="margin-left:14px"></span><span class="lg-today"></span><span>今日</span>`;
+  $('#legend').innerHTML = legend;
+  if(!box.dataset.bound){
+    box.dataset.bound = '1';
+    box.addEventListener('click', e=>{
+      const dk = e.target.dataset && e.target.dataset.dk;
+      if(!dk) return; pickDay(dk, true);
+    });
+    box.addEventListener('mouseover', e=>{ const dk=e.target.dataset&&e.target.dataset.dk; if(dk) showTip(e, dk); });
+    box.addEventListener('mousemove', e=>{ moveTip(e); });
+    box.addEventListener('mouseout', hideTip);
+  }
+  if(!selected){
+    const withData = Object.keys(DAYS).sort().filter(k=>DAYS[k].req_n>0);
+    selected = withData[withData.length-1];
+  }
+  if(selected) syncDayNav();
+}
+
+/* ---------- tooltip ---------- */
+function showTip(e, dk){
+  const rec = DAYS[dk]; if(!rec) return;
+  let html = `<div class="tt-title">${cnDate(dk)}</div>`;
+  html += `<div class="mrow"><span>积分合计</span><span class="mv num">${rec.credit.toFixed(2)}</span></div>`;
+  const td0 = TOK_DAYS[dk];
+  if(td0 && td0.tokens) html += `<div class="mrow"><span>本机 Token</span><span class="mv num">${fmtTok(td0.tokens)}</span></div>`;
+  html += `<div class="mrow"><span>请求 / 免费</span><span class="mv num">${rec.req_n} / ${rec.free_n}</span></div>`;
+  if(rec.other_credit) html += `<div class="mrow"><span>本机 / 其他端</span><span class="mv num">${(rec.local_credit||0).toFixed(2)} / ${rec.other_credit.toFixed(2)}</span></div>`;
+  const ms = Object.entries(rec.by_model||{}).filter(x=>x[1]>0);
+  ms.slice(0,4).forEach(([m,v])=>{ html += `<div class="mrow"><span>${esc(m)}</span><span class="mv num">${v.toFixed(2)}</span></div>`; });
+  if(ms.length>4) html += `<div class="mrow"><span>其他 ${ms.length-4} 个模型</span><span class="mv num">${ms.slice(4).reduce((a,x)=>a+x[1],0).toFixed(2)}</span></div>`;
+  if(rec.credit===0 && rec.req_n>0) html += `<div style="color:var(--mid);margin-top:2px">当日全部为免费/未计费请求</div>`;
+  const tt = $('#tooltip'); tt.innerHTML = html; tt.style.display='block'; moveTip(e);
+}
+function moveTip(e){
+  const tt = $('#tooltip');
+  let x = e.clientX+14, y = e.clientY+14;
+  const r = tt.getBoundingClientRect();
+  if(x+r.width > innerWidth-8) x = e.clientX-r.width-10;
+  if(y+r.height > innerHeight-8) y = e.clientY-r.height-10;
+  tt.style.left = x+'px'; tt.style.top = y+'px';
+}
+function hideTip(){ $('#tooltip').style.display='none'; }
+
+/* ---------- 日期联动（详单 + 会话消耗 · ◀ 日期下拉 ▶ + 日历高亮） ---------- */
+let dayList = [];
+let sessMode = 'total';
+let sessPage = 0;
+const SESS_PAGE = 5;
+function buildDayList(){ dayList = Object.keys(DAYS).sort(); }
+function dayOptionsHtml(){
+  return dayList.slice().reverse().map(k=>{
+    const rec = DAYS[k] || {};
+    const wd = WD[new Date(k.replace(/-/g,'/')).getDay()].slice(1);
+    return `<option value="${k}" ${k===selected?'selected':''}>${k.slice(5).replace('-','/')} ${wd} · ${(rec.credit||0).toFixed(2)}</option>`;
+  }).join('');
+}
+/* 统一日期入口：详单 + 会话消耗（按天时）+ 日历高亮 一起联动 */
+function pickDay(dk, forceSessDay){
+  if(!dk || !DAYS[dk]) return;
+  selected = dk;
+  renderDetail(dk);
+  if(forceSessDay && sessMode !== 'day') setSessMode('day');
+  else if(sessMode === 'day') renderSessDay();
+  syncDayNav();
+}
+function shiftDay(step){
+  if(!selected) return;
+  const i = dayList.indexOf(selected);
+  const j = i + step;
+  if(j < 0 || j >= dayList.length) return;
+  pickDay(dayList[j]);
+}
+function jumpDay(dk){ pickDay(dk); }
+function syncDayNav(){
+  if(!selected) return;
+  const i = dayList.indexOf(selected);
+  [['#dPrev','#dNext','#dSel'],['#sdPrev','#sdNext','#sdSel']].forEach(ids=>{
+    const p = $(ids[0]), n = $(ids[1]), sel = $(ids[2]);
+    if(p) p.classList.toggle('off', i <= 0);
+    if(n) n.classList.toggle('off', i >= dayList.length - 1);
+    if(sel) sel.value = selected;
+  });
+  document.querySelectorAll('.cal-cell.viewed').forEach(el=>el.classList.remove('viewed'));
+  const cell = document.querySelector('.cal-cell[data-dk="' + selected + '"]');
+  if(cell) cell.classList.add('viewed');
+}
+function renderDetail(dk){
+  const rows = DETAILS[dk] || [];
+  const rec = DAYS[dk] || {};
+  const nav = `<span class="dnav">
+        <button class="dbtn" id="dPrev" onclick="shiftDay(-1)" title="前一天（跳到有数据的日期）">&#9664;</button>
+        <select id="dSel" onchange="jumpDay(this.value)" title="选择日期（仅列有数据的日期）">${dayOptionsHtml()}</select>
+        <button class="dbtn" id="dNext" onclick="shiftDay(1)" title="后一天（跳到有数据的日期）">&#9654;</button>
+      </span>`;
+  if(!rows.length){
+    $('#detailPanel').innerHTML = `
+      <div class="detail-title"><b>${cnDate(dk)}</b><span class="sum">当日无记录</span>${nav}</div>`;
+    return;
+  }
+  const head = '<tr><th>时间 TIME</th><th>模型 MODEL</th><th class="r">积分 CREDIT</th><th>来源 CLIENT</th><th>摘要 INPUT</th></tr>';
+  const body = rows.map(r=>{
+    const free = r.credit === 0;
+    const creditCell = free ? '<span class="free-tag">FREE</span>' : r.credit.toFixed(2);
+    return `<tr class="${free?'free-row':''}">
+      <td class="num">${r.t}</td>
+      <td><span class="model-tag">${esc(r.model)}</span></td>
+      <td class="r num">${creditCell}</td>
+      <td>${esc(r.client)}</td>
+      <td class="inp" title="${esc(r.input)}">${esc(r.input) || '—'}</td></tr>`;
+  }).join('');
+  const lc = rec.local_credit || 0, oc = rec.other_credit || 0;
+  const sumTxt = `共 ${rec.credit?rec.credit.toFixed(2):0} 积分 · ${rec.req_n||0} 次请求 · 免费 ${rec.free_n||0} 次` + (oc > 0 ? ` · 本机 ${lc.toFixed(2)} / 非本机 ${oc.toFixed(2)}` : '');
+  $('#detailPanel').innerHTML = `
+    <div class="detail-title"><b>${cnDate(dk)}</b><span class="sum">${sumTxt}</span>${nav}</div>
+    <div class="scroll"><table>${head}${body}</table></div>`;
+  syncDayNav();
+}
+
+/* ---------- 模型消耗（积分 / 次数 / Token · 条形增长动画） ---------- */
+let modelMetric = 'credit';
+function setModelMetric(m){
+  modelMetric = m;
+  document.querySelectorAll('#modelSeg .sg').forEach(el=>el.classList.toggle('on', el.dataset.m===m));
+  renderModels();
+}
+function renderModels(){
+  const colors = MODEL_COLORS[currentTheme()];
+  let list, base, total, valOf, foot = '';
+  if(modelMetric === 'token'){
+    const bm = (DATA.token_stats && DATA.token_stats.by_model) || [];
+    base = {};
+    bm.forEach(x=>{ base[x.name] = x.tokens; });
+    list = bm.map(x=>x.name);
+    total = bm.reduce((a,x)=>a+x.tokens,0) || 1;
+    valOf = m=>{ const x = bm.find(y=>y.name===m) || {}; return `${fmtTok(x.tokens||0)} Token · ${x.n||0} 次`; };
+    foot = '<div class="mtnote">Token 为本机 jsonl 视角（服务端不含 token 字段），与「积分」不同源、窗口不受 31 天限制。</div>';
+  } else {
+    const keys = Object.keys(DAYS).sort();
+    const aggC = {}, aggN = {};
+    keys.forEach(k=>{
+      for(const [m,v] of Object.entries(DAYS[k].by_model||{})) aggC[m]=(aggC[m]||0)+v;
+      for(const [m,v] of Object.entries(DAYS[k].by_model_n||{})) aggN[m]=(aggN[m]||0)+v;
+    });
+    base = modelMetric==='credit' ? aggC : aggN;
+    list = Object.keys(base).sort((a,b)=>base[b]-base[a]);
+    total = list.reduce((a,m)=>a+base[m],0) || 1;
+    valOf = m=>`${(aggC[m]||0).toFixed(2)} 积分 · ${aggN[m]||0} 次`;
+  }
+  $('#modelPanel').innerHTML = (list.map((m,i)=>{
+    const v = base[m];
+    const w = (v/total*100).toFixed(1);
+    return `<div class="mrowline"><span class="mname" title="${esc(m)}">${esc(m)}</span>
+     <div class="mtrack"><div class="mfill" data-w="${w}" style="width:0%;background:${colors[i%colors.length]}"></div></div>
+     <span class="mval num">${valOf(m)}</span></div>`;
+  }).join('') || '<div style="color:var(--faint);font-size:12px">暂无数据</div>') + foot;
+  // 首次/切换时：双 rAF 后设目标宽度，触发增长动画
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll('#modelPanel .mfill').forEach(el=>{ el.style.width = el.dataset.w + '%'; });
+  }));
+}
+
+/* ---------- 来源拆分（对账：本机 vs 其他端 · 仅积分维度） ---------- */
+function renderSource(){
+  const box = $('#sourcePanel'); if(!box) return;
+  const sp = DATA.source_split;
+  if(!sp){
+    box.innerHTML = '<div style="color:var(--faint);font-size:12px">暂无对账数据（本机会话记录不可读）</div>';
+    return;
+  }
+  const L = sp.local || {n:0,credit:0}, W = sp.web || {n:0,credit:0},
+        C = sp.cloud || {n:0,credit:0}, U = sp.unmatched || {n:0,credit:0},
+        S = sp.unmatched_silent || {n:0,credit:0};
+  const other = sp.other_credit || 0, otherN = sp.other_n || 0;
+  const tot = (L.credit + other) || 1;
+  const lp = L.credit/tot*100, op = other/tot*100;
+  box.innerHTML = `
+    <div class="sbar" title="本机 ${lp.toFixed(1)}% / 其他端 ${op.toFixed(1)}%">
+      <i style="width:${lp.toFixed(2)}%;background:var(--accent)"></i><i style="width:${op.toFixed(2)}%;background:var(--dim)"></i>
+    </div>
+    <div class="slegend">
+      <span><i class="k" style="background:var(--accent)"></i>本机（可对账还原）<b class="num"> ${L.credit.toFixed(1)}</b> 积分 · ${lp.toFixed(1)}% · ${L.n} 条</span>
+      <span><i class="k" style="background:var(--dim)"></i>其他端 <b class="num">${other.toFixed(1)}</b> 积分 · ${op.toFixed(1)}% · ${otherN} 条</span>
+    </div>
+    <details class="moreinfo"><summary>ⓘ 口径与构成说明</summary>
+      <div class="mi-body">其他端构成：网页版 <b class="num">${W.credit.toFixed(1)}</b>（${W.n} 条）· APP <b class="num">${C.credit.toFixed(1)}</b>（${C.n} 条）· 客户端未匹配 <b class="num">${U.credit.toFixed(1)}</b>（${U.n} 条：含另一台设备与不可对账的辅助调用，其中约 <b class="num">${S.credit.toFixed(1)}</b> 疑似另一台设备，按 ±10 分钟时间对齐估算）。<br>
+      对账口径：本机 jsonl 的 conversationRequestId ↔ 账单 requestId（命中即该笔消耗可由本机会话还原）；<b>Token 明细仅本机可获得（服务端不含），本拆分只覆盖积分维度</b>。</div>
+    </details>`;
+}
+
+/* ---------- 会话消耗：总消耗 / 按天 ---------- */
+function setSessMode(m){
+  sessMode = (m === 'day') ? 'day' : 'total';
+  document.querySelectorAll('#sessSeg .sg').forEach(el=>el.classList.toggle('on', el.dataset.m===sessMode));
+  const tp = $('#sessionPanel'), dp = $('#sessDayPanel');
+  if(tp) tp.style.display = (sessMode === 'total') ? '' : 'none';
+  if(dp) dp.style.display = (sessMode === 'day') ? '' : 'none';
+  if(sessMode === 'day') renderSessDay(); else renderSessions();
+}
+let _sidx = null;
+function sessIndex(){
+  if(!_sidx){
+    _sidx = {};
+    (DATA.sessions || []).forEach(s=>{ _sidx[s.sid] = s; });
+  }
+  return _sidx;
+}
+function renderSessDay(){
+  const panel = $('#sessDayPanel'); if(!panel) return;
+  const dk = selected;
+  const dd = ((DATA.session_days || {})[dk]) || {};
+  const idx = sessIndex();
+  const rows = Object.keys(dd).map(sid=>{
+    const v = dd[sid] || {}, meta = idx[sid] || {};
+    const hr = (v.hit || 0) / Math.max(1, (v.hit || 0) + (v.miss || 0)) * 100;
+    return { sid: sid, n: v.n||0, inp: v.inp||0, out: v.out||0, think: v.think||0,
+             hit_rate: hr, credit: v.credit||0, tokens: v.tokens||0,
+             title: meta.title || '', title_src: meta.title_src, sub: meta.sub, agent: meta.agent };
+  }).sort((a,b)=>b.tokens-a.tokens);
+  let totT = 0, totC = 0;
+  rows.forEach(r=>{ totT += r.tokens; totC += r.credit; });
+  const head = `<div class="stotals num" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">${dk ? cnDate(dk) : '—'} · <b>${rows.length}</b> 个会话 · 合计 Token <b>${fmtTok(totT)}</b> · 积分 <b>${totC.toFixed(1)}</b>
+      <span class="dnav" style="margin-left:auto">
+        <button class="dbtn" id="sdPrev" onclick="shiftDay(-1)" title="前一天">&#9664;</button>
+        <select class="ssel" id="sdSel" onchange="jumpDay(this.value)" title="选择日期">${dayOptionsHtml()}</select>
+        <button class="dbtn" id="sdNext" onclick="shiftDay(1)" title="后一天">&#9654;</button>
+      </span></div>`;
+  const maxTok = Math.max(1, ...rows.map(r=>r.tokens || 0));
+  const body = rows.length ? rows.map(r=>{
+    const subTag = r.sub ? `<span class="subtag">子代理${r.agent ? ' · ' + esc(r.agent) : ''}</span>` : '';
+    const ttip = esc((r.title || '') + (r.title_src === 'derived' ? '（标题取自会话首条消息）' : ''));
+    const barW = ((r.tokens || 0) / maxTok * 100).toFixed(2);
+    return `<div class="sess sdayrow">
+      <div class="shead">
+        <span class="stitle" title="${ttip}">${esc(r.title || r.sid.slice(0,8))}</span>
+        ${subTag}
+        <span class="ssid num">${r.sid.slice(0,8)}</span>
+        <span class="srange num">${r.n} 请求 · 积分 ${r.credit.toFixed(1)}</span>
+      </div>
+      <div class="stokrow"><span class="stoklab">Token</span><span class="stoktrack"><i class="stokfill" data-w="${barW}"></i></span><span class="stokval num">${fmtTok(r.tokens)}</span></div>
+      <div class="sstats num">输入 ${fmtTok(r.inp)} · 输出 ${fmtTok(r.out)} · 思考 ${fmtTok(r.think)} · 命中率 <b>${r.hit_rate.toFixed(1)}%</b></div>
+    </div>`;
+  }).join('') : '<div style="color:var(--faint);font-size:12px;padding:8px 0">该日无本机会话记录</div>';
+  panel.innerHTML = head + body;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    panel.querySelectorAll('.stokfill').forEach(el=>{ el.style.width = el.dataset.w + '%'; });
+  }));
+  syncDayNav();
+}
+function fmtTok(n){
+  n = n || 0;
+  if(n >= 1e8) return (n/1e8).toFixed(2) + '亿';
+  if(n >= 1e4) return (n/1e4).toFixed(1) + '万';
+  return fmt(n);
+}
+function renderSessions(){
+  const ss = DATA.sessions || [], ts = DATA.token_stats || {};
+  const panel = $('#sessionPanel'); if(!panel) return;
+  if(!ss.length){
+    panel.innerHTML = '<div style="color:var(--faint);font-size:12px">暂无会话数据（需本机 ~/.workbuddy/projects 下有会话记录）</div>';
+    return;
+  }
+  const totalPages = Math.max(1, Math.ceil(ss.length / SESS_PAGE));
+  if(sessPage >= totalPages) sessPage = totalPages - 1;
+  if(sessPage < 0) sessPage = 0;
+  const maxTok = (ss[0] && ss[0].tokens) || 1;
+  const totalTok = ts.total_tokens || ss.reduce((a,s)=>a+s.tokens,0) || 1;
+  const pageRows = ss.slice(sessPage*SESS_PAGE, sessPage*SESS_PAGE + SESS_PAGE);
+  const pageOpts = Array.from({length: totalPages}, (_, i)=>{
+    const a = i*SESS_PAGE + 1, b = Math.min(ss.length, (i+1)*SESS_PAGE);
+    return `<option value="${i}" ${i===sessPage?'selected':''}>第 ${i+1}/${totalPages} 页 · #${a}-${b}</option>`;
+  }).join('');
+  const head = `<div class="stotals num" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">本机 <b>${ts.sessions_n||ss.length}</b> 个会话 · 跨模型 <b>${ts.multi_n||0}</b> 个 · 总 Token <b>${fmtTok(ts.total_tokens)}</b> · 缓存命中率 <b>${(ts.hit_rate||0).toFixed(1)}%</b>
+      <span class="dnav" style="margin-left:auto">
+        <button class="dbtn" id="sessPrev" onclick="sessPageShift(-1)" title="上一页">&#9664;</button>
+        <select class="ssel" onchange="sessPageJump(this.value)">${pageOpts}</select>
+        <button class="dbtn" id="sessNext" onclick="sessPageShift(1)" title="下一页">&#9654;</button>
+      </span></div>`;
+  const rows = pageRows.map(s=>{
+    const chips = s.models.slice(0,4).map(m=>`<span class="model-tag">${esc(m.name)} ×${m.n}</span>`).join('')
+      + (s.models.length > 4 ? `<span class="model-tag more">+${s.models.length-4}</span>` : '');
+    const trs = s.models.map(m=>`<tr>
+      <td><span class="model-tag">${esc(m.name)}</span></td>
+      <td class="r num">${m.n}</td>
+      <td class="r num">${fmtTok(m.inp)}</td>
+      <td class="r num">${fmtTok(m.out)}</td>
+      <td class="r num">${fmtTok(m.think)}</td>
+      <td class="r num">${(m.hit_rate||0).toFixed(1)}%</td>
+      <td class="r num">${(m.credit||0).toFixed(1)}</td></tr>`).join('');
+    const subTag = s.sub ? `<span class="subtag">子代理${s.agent ? ' · ' + esc(s.agent) : ''}</span>` : '';
+    const ttip = esc((s.title || '') + (s.title_src === 'derived' ? '（标题取自会话首条消息）' : ''));
+    const barW = (s.tokens / maxTok * 100).toFixed(2);
+    const pct = (s.tokens / totalTok * 100).toFixed(1);
+    return `<div class="sess" onclick="toggleSess(this, event)">
+      <div class="shead">
+        <span class="sarrow">&#9656;</span>
+        <span class="stitle" title="${ttip}">${esc(s.title || s.sid.slice(0,8))}</span>
+        ${subTag}
+        <span class="ssid num">${s.sid.slice(0,8)}</span>
+        <span class="srange num">${(s.tmin||'').replace(/^\d{4}-/,'')} → ${(s.tmax||'').replace(/^\d{4}-/,'')} · ${s.n} 请求</span>
+      </div>
+      <div class="schips">${chips}</div>
+      <div class="sstats num">总 <b>${fmtTok(s.tokens)}</b> · 输入 ${fmtTok(s.inp)} · 输出 ${fmtTok(s.out)} · 思考 ${fmtTok(s.think)} · 命中率 <b>${(s.hit_rate||0).toFixed(1)}%</b><span class="strack"><i class="sfill" data-w="${(s.hit_rate||0).toFixed(1)}"></i></span>· 积分 <b>${(s.credit||0).toFixed(1)}</b></div>
+      <div class="stokrow"><span class="stoklab">消耗占比</span><span class="stoktrack"><i class="stokfill" data-w="${barW}"></i></span><span class="stokval num">占总量 ${pct}%</span></div>
+      <div class="sdetail" style="display:none"><table>
+        <tr><th>模型 MODEL</th><th class="r">请求</th><th class="r">输入</th><th class="r">输出</th><th class="r">思考</th><th class="r">命中率</th><th class="r">积分</th></tr>${trs}</table></div>
+    </div>`;
+  }).join('');
+  panel.innerHTML = head + rows;
+  const pv = $('#sessPrev'), nx = $('#sessNext');
+  if(pv) pv.classList.toggle('off', sessPage <= 0);
+  if(nx) nx.classList.toggle('off', sessPage >= totalPages - 1);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll('#sessionPanel .sfill, #sessionPanel .stokfill').forEach(el=>{ el.style.width = el.dataset.w + '%'; });
+  }));
+}
+function sessPageShift(step){
+  const n = (DATA.sessions || []).length;
+  const total = Math.max(1, Math.ceil(n / SESS_PAGE));
+  const p = Math.min(total - 1, Math.max(0, sessPage + step));
+  if(p !== sessPage){ sessPage = p; renderSessions(); }
+}
+function sessPageJump(v){
+  const p = parseInt(v, 10);
+  if(!isNaN(p) && p !== sessPage){ sessPage = p; renderSessions(); }
+}
+function toggleSess(box, e){
+  if(e && e.target && e.target.closest && e.target.closest('.sdetail')) return;
+  const det = box.querySelector('.sdetail'); if(!det) return;
+  const ar = box.querySelector('.sarrow');
+  const show = det.style.display === 'none';
+  det.style.display = show ? '' : 'none';
+  if(ar) ar.innerHTML = show ? '&#9662;' : '&#9656;';
+}
+
+/* ---------- 字号缩放（默认 110% · localStorage 记忆） ---------- */
+const FSCALES = [0.9, 1.0, 1.1, 1.25, 1.4];
+let fsIndex = 2;
+function applyFs(){
+  const v = FSCALES[fsIndex];
+  document.body.style.setProperty('--fs', String(v));
+  const el = $('#fsVal'); if(el) el.textContent = Math.round(v*100) + '%';
+  const d = $('#fsDown'), u = $('#fsUp');
+  if(d) d.classList.toggle('off', fsIndex <= 0);
+  if(u) u.classList.toggle('off', fsIndex >= FSCALES.length - 1);
+  try{ localStorage.setItem('wb_fontscale', String(fsIndex)); }catch(e){}
+}
+function fsStep(step){ fsIndex = Math.max(0, Math.min(FSCALES.length-1, fsIndex + step)); applyFs(); }
+try{ const v0 = parseInt(localStorage.getItem('wb_fontscale'), 10); if(!isNaN(v0) && v0>=0 && v0<FSCALES.length) fsIndex = v0; }catch(e){}
+applyFs();
+
+/* ---------- footer ---------- */
+function renderFoot(){
+  const s = DATA.stats, meta = DATA.meta || {};
+  $('#foot').innerHTML = `
+    数据范围 <b>${s.range_start} ~ ${s.range_end}</b> · 共 <b>${s.total_n}</b> 条 / <b>${s.credit_total}</b> 积分 · 免费 ${s.free_n} 条 · 账单同步于 <b>${meta.synced_at||'—'}</b> · 页面生成于 ${DATA.generated_at}
+    <details class="moreinfo"><summary>ⓘ 详细口径与刷新说明</summary>
+      <div class="mi-body">
+        数据口径：<b>服务端账单（官方结算真值）</b>，覆盖全部客户端（客户端 / 网页版 / APP），含免费与未计费请求（credit=0，详单标 FREE）；接口边界 8/21 起，更早历史不可得。<br>
+        客户端分布：${Object.entries(s.client_dist||{}).map(([k,v])=>`${k} ${v}`).join(' · ')}。<br>
+        刷新方式：运行 scripts\\refresh_billing.bat（同步账单 + 重建本页）。<br>
+        数据持久性：账单接口为 <b>31 天滚动窗口</b>，本机缓存<b>永久累积</b>（按 requestId 合并，只增不减）——滑出窗口的历史数据不会从看板消失；但<b>同步间隔请勿超过 31 天</b>，否则中间未拉取的段落将永久缺失。
+      </div>
+    </details>`;
+}
+
+buildThemeBar(); syncThemeBar();
+buildDayList();
+renderCards(); renderCal(); renderDetail(selected); renderModels(); renderFoot(); renderSource(); setSessMode('total');
+</script>
+</body>
+</html>
