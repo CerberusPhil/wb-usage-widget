@@ -1,6 +1,6 @@
 <img src="icons/favicon-64.png" width="72" alt="icon">
 
-# Workbuddy用量挂件（非官方）
+# Workbuddy积分看板（非官方）
 
 > WorkBuddy 账号用量桌面挂件 + 完整看板。常驻桌面实时查看积分余额、今日/本月消耗（积分 ⇄ Token 切换）、
 > 今日会话 Token 消耗榜；内置浏览器可打开的完整看板（账单详单 / 热力日历 / 会话消耗 / 来源拆分）。
@@ -81,6 +81,7 @@ scripts\stop_billing_widget.bat
 ├── icons/                    # 应用图标（favicon / .ico 多尺寸，原创）
 ├── packaging/
 │   ├── WBCreditWidget.spec   # PyInstaller 打包配置
+│   ├── version_info.txt      # Windows 版本资源（产品名/描述 = Workbuddy积分看板）
 │   ├── build.bat             # 一键重新打包
 │   └── 使用说明.txt
 └── dist/

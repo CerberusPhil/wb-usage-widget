@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-WB 积分挂件 · 单文件入口（源码一键启动；PyInstaller 打包后的 exe 入口）
+Workbuddy积分看板 · 单文件入口（源码一键启动；PyInstaller 打包后的 exe 入口）
 ================================================================================
 启动流程：
   1) 单实例互斥锁——已有实例运行则聚焦其窗口并退出（不会开出第二个挂件）
@@ -20,6 +20,7 @@ import time
 import traceback
 
 APP_MUTEX = 'WBCreditWidget_Singleton_v1'
+WINDOW_TITLE = 'Workbuddy积分看板'             # 兜底值；运行期真值取自 billing_widget.TITLE
 LOG_DIR_NAME = 'WBCreditWidget'
 _KEEP = []                                     # 保持互斥锁句柄引用（进程存活期不释放）
 _STDIO_REDIRECTED = False
@@ -72,6 +73,15 @@ def acquire_single_instance():
     return ctypes.get_last_error() != 183      # 183 = ERROR_ALREADY_EXISTS
 
 
+def _window_title():
+    """窗口标题的唯一真相在 billing_widget.TITLE（避免两处硬编码产生漂移）。"""
+    try:
+        import billing_widget as _bw
+        return getattr(_bw, 'TITLE', WINDOW_TITLE)
+    except Exception:
+        return WINDOW_TITLE
+
+
 def focus_existing_window(timeout=3.0):
     """把已有挂件窗口带到前台（尽力而为，可能受系统焦点策略限制）。"""
     import ctypes
@@ -82,7 +92,7 @@ def focus_existing_window(timeout=3.0):
     u.SetForegroundWindow.argtypes = [ctypes.c_void_p]
     deadline = time.time() + timeout
     while time.time() < deadline:
-        hwnd = u.FindWindowW(None, 'WB-积分挂件')
+        hwnd = u.FindWindowW(None, _window_title())
         if hwnd:
             u.ShowWindow(ctypes.c_void_p(hwnd), 9)          # SW_RESTORE
             u.SetForegroundWindow(ctypes.c_void_p(hwnd))

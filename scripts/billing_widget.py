@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-WorkBuddy 积分挂件 · 桌面壳（pywebview，缺则 Edge --app 降级）
+Workbuddy积分看板 · 桌面壳（pywebview，缺则 Edge --app 降级）
 =============================================================
 依赖：本机 8790 上的 billing_server.py 必须先跑起来（start_billing_widget.bat 会先起它）。
 
@@ -33,7 +33,7 @@ import subprocess
 import time
 
 URL_BASE = 'http://127.0.0.1:8790'
-TITLE = 'WB-积分挂件'
+TITLE = 'Workbuddy积分看板'                  # 窗口标题 = 任务栏显示名（唯一真相：别处请引用本常量）
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if getattr(sys, 'frozen', False):            # PyInstaller onefile：数据文件解包在 _MEIPASS 根
     SCRIPT_DIR = getattr(sys, '_MEIPASS', SCRIPT_DIR)

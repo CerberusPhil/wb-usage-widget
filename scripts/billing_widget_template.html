@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WB 积分挂件</title>
+<title>Workbuddy积分看板</title>
 <style>
   /* ===== 桌面挂件 · 精简仪表盘（基准 420×450，可拖拽缩放）· WorkBuddy / EVA-01 / EVA-02 三主题 ===== */
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -44,10 +44,12 @@
   @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
 
   /* header */
-  .hd { display:flex; align-items:baseline; gap:8px; flex:none; }
-  .hd b { font-size:calc(13px * var(--fs,1)); letter-spacing:2px; color:var(--accent); font-weight:700; }
-  .hd .sub { font-size:calc(9.5px * var(--fs,1)); color:var(--faint); letter-spacing:1px; font-weight:600; }
-  .hd .tbtns { margin-left:auto; display:flex; gap:4px; align-items:center; }
+  .hd { display:flex; align-items:baseline; gap:8px; flex:none; min-width:0; }
+  /* 标题可收缩：窄窗时以省略号降级，保证右侧主题/最小化/关闭按钮永远不被挤出画面 */
+  .hd b { font-size:calc(13px * var(--fs,1)); letter-spacing:2px; color:var(--accent); font-weight:700;
+          flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hd .sub { font-size:calc(9.5px * var(--fs,1)); color:var(--faint); letter-spacing:1px; font-weight:600; flex:none; }
+  .hd .tbtns { margin-left:auto; display:flex; gap:4px; align-items:center; flex:none; }
   .tb { width:14px; height:14px; border-radius:2px; cursor:pointer; border:1px solid var(--pborder); padding:0; }
   .tb[data-t="wb"]    { background:#00c9a7; }
   .tb[data-t="eva01"] { background:linear-gradient(120deg,#a05cff 40%,#9eff00 60%); }
@@ -133,7 +135,7 @@
   .dot { width:7px; height:7px; border-radius:50%; background:var(--ok); flex:none; }
   .dot.warn { background:#ffd23d; } .dot.err { background:#ff3b3b; }
   .status span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .fbtns { margin-left:auto; display:flex; gap:6px; }
+  .fbtns { margin-left:auto; display:flex; gap:6px; flex:none; }
   .fb { cursor:pointer; font-family:inherit; font-weight:600; font-size:calc(10px * var(--fs,1)); letter-spacing:1px;
         background:transparent; color:var(--bright); border:1px solid var(--dim);
         border-radius:2px; padding:3px 8px; text-decoration:none; white-space:nowrap; }
@@ -149,7 +151,7 @@
 <body>
 <div id="app">
   <div class="hd">
-    <b id="appTitle">WORKBUDDY</b><span class="sub">积分 · Token 挂件</span>
+    <b id="appTitle">Workbuddy积分看板</b><span class="sub">积分 · Token</span>
     <span class="tbtns">
       <button class="tb" data-t="wb" title="WorkBuddy"></button>
       <button class="tb" data-t="eva01" title="EVA-01"></button>
@@ -382,13 +384,12 @@ setTimeout(restoreSize, 1500);
 
 /* ===== 主题 ===== */
 const THEMES = ['wb','eva01','eva02'];
-const TITLES = { wb:'WORKBUDDY', eva01:'EVA-01', eva02:'EVA-02' };
 function setTheme(t, replay){
   if(!THEMES.includes(t)) t = 'wb';
   document.body.dataset.theme = t;
   try{ localStorage.setItem('wb_widget_theme', t); }catch(e){}
   document.querySelectorAll('.tb').forEach(b=>b.classList.toggle('on', b.dataset.t===t));
-  const tt = document.getElementById('appTitle'); if(tt) tt.textContent = TITLES[t] || 'WORKBUDDY';
+  // 标题固定为统一产品名「Workbuddy积分看板」，不再随主题变化；主题状态由上方高亮的主题按钮体现
   if(replay){ replayNums(); renderTodaySessions(LAST); }
 }
 (function(){

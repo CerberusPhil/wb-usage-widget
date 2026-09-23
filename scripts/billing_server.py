@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-WorkBuddy 积分挂件服务（桌面挂件层 · 127.0.0.1:8790）
+Workbuddy积分看板 · 本地服务（桌面挂件层 · 127.0.0.1:8790）
 ========================================================
 为桌面挂件（billing_widget.py）与浏览器提供迷你常驻服务：
   GET /            挂件精简视图（billing_widget_template.html + 实时数据注入）
@@ -139,7 +139,7 @@ display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
 .diag{margin-top:16px;padding-top:12px;border-top:1px solid #3a3a20;font-size:12px;
 color:#9a7c3a;text-align:left;line-height:1.75;word-break:break-all}
 a{color:#ffd23d}</style></head><body><div class="box">
-<div class="t">WB 积分挂件</div><div>暂无账单数据</div>
+<div class="t">Workbuddy积分看板</div><div>暂无账单数据</div>
 <div style="font-size:12px;color:#9a7c3a">首次同步约需数秒，本页每 10 秒自动刷新</div>
 <div class="diag">同步状态：{{DETAIL}}<br>凭据自检：{{AUTH}}<br><a href="/api/sync">点此立即重试同步</a></div>
 </div></body></html>"""
