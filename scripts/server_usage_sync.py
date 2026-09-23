@@ -97,6 +97,7 @@ def _auth_candidates():
 
 
 _AUTH_SCAN = {'at': 0.0, 'files': None}
+_BEARER_NOTE = ''          # 桌面登录态不可用时的原因（供界面/日志显示）
 
 
 def _discover_auth_files(max_depth=5, limit=10, ttl=600):
@@ -171,7 +172,15 @@ def _looks_like_wb_auth(d, path):
 
 
 def load_bearer():
-    """读本机桌面登录态 → {'token','domain','expired','file'}；找不到返回 None。"""
+    """读本机桌面登录态 → {'token','domain','expired','file'}；找不到/不可用返回 None。
+
+    ⚠️ 新版 WorkBuddy 客户端把 auth.accessToken 改为**加密信封**
+    （`{"$wbEncrypted":1,"envelope":"..."}`），本地拿不到明文 JWT。
+    遇到这种（非字符串）值即视为不可用 → 返回 None，
+    由 resolve_auth() 自动改用浏览器 cookie 兜底（此时会在 _BEARER_NOTE 记录原因）。
+    """
+    global _BEARER_NOTE
+    enc_file = None
     for p in _auth_candidates():
         if not os.path.isfile(p):
             continue
@@ -187,6 +196,10 @@ def load_bearer():
                  or d.get('accessToken') or d.get('access_token') or d.get('token'))
         if not token:
             continue
+        if not isinstance(token, str):
+            # 加密信封（dict）：不可用。记下现场，继续尝试其它候选（可能是旧版明文文件）
+            enc_file = p
+            continue
         domain = a.get('domain') or d.get('domain') or 'www.codebuddy.cn'
         expired = False
         exp = a.get('expiresAt') or a.get('expires_at')
@@ -198,7 +211,11 @@ def load_bearer():
                 expired = e <= time.time()
             except (TypeError, ValueError):
                 pass
+        _BEARER_NOTE = ''
         return {'token': token, 'domain': domain, 'expired': expired, 'file': p}
+    if enc_file:
+        _BEARER_NOTE = ('桌面登录态的 accessToken 已加密（新版客户端 at-rest 加密：'
+                        '{"$wbEncrypted":1,...}），本地无法取得明文令牌')
     return None
 
 
@@ -232,7 +249,9 @@ def auth_status():
         return '已找到登录态：%s%s' % (b['file'], extra)
     try:
         if load_cookie():
-            return '未找到客户端登录态，改用浏览器 cookie 兜底'
+            if _BEARER_NOTE:
+                return '桌面登录态不可用：%s；已改用浏览器 cookie 兜底（%s）' % (_BEARER_NOTE, CRED_FILE)
+            return '未找到客户端登录态，改用浏览器 cookie 兜底（%s）' % CRED_FILE
     except Exception:
         pass
     try:
@@ -353,6 +372,8 @@ def run_sync(quiet=False):
         warn = '（提示：登录态可能已过期，打开 WB 客户端重登可自愈）' if auth.get('expired') else ''
         say('[sync] 凭据：桌面登录态 %s %s' % (auth['file'], warn))
     else:
+        if _BEARER_NOTE:
+            say('[sync] 凭据：%s；改用 cookie 兜底' % _BEARER_NOTE)
         say('[sync] 凭据：浏览器 cookie（%s，兜底模式）' % CRED_FILE)
     _px = _proxy_url()
     if _px:
@@ -377,11 +398,29 @@ def run_sync(quiet=False):
     try:
         rows, total = fetch_usage(auth, start, end)
     except urllib.error.HTTPError as e:
-        if auth['mode'] == 'bearer':
-            say(f'[sync] HTTP {e.code}：桌面登录态异常——打开 WorkBuddy 客户端重新登录一次即可自愈')
-            return False, f'HTTP {e.code}：登录态异常（重登 WorkBuddy 客户端可自愈）'
-        say(f'[sync] HTTP {e.code}：cookie 可能已过期，请重新抓包更新 {CRED_FILE}')
-        return False, f'HTTP {e.code}：cookie 已过期（需重新抓包）'
+        # Bearer 被服务端拒绝（401/403）时，自动回退到浏览器 cookie 再试一次
+        if auth.get('mode') == 'bearer' and e.code in (401, 403):
+            ck = load_cookie()
+            if ck:
+                say('[sync] 桌面登录态被拒（HTTP %s）→ 改用浏览器 cookie 兜底重试' % e.code)
+                auth = {'mode': 'cookie', 'cookie': ck}
+                try:
+                    rows, total = fetch_usage(auth, start, end)
+                except urllib.error.HTTPError as e2:
+                    say('[sync] cookie 兜底也失败：HTTP %s（cookie 可能已过期，需重新抓取）' % e2.code)
+                    return False, 'HTTP %s：登录态与 cookie 均不可用' % e2.code
+                except Exception as e2:
+                    say('[sync] cookie 兜底异常：%s' % e2)
+                    return False, 'cookie 兜底失败：%s' % e2
+            else:
+                say('[sync] HTTP %s：桌面登录态被服务端拒绝，且无 cookie 兜底' % e.code)
+                return False, 'HTTP %s：登录态不可用且无 cookie 兜底' % e.code
+        elif auth.get('mode') == 'cookie':
+            say('[sync] HTTP %s：浏览器 cookie 可能已过期，需重新抓取并更新 %s' % (e.code, CRED_FILE))
+            return False, 'HTTP %s：cookie 已过期（需重新抓取）' % e.code
+        else:
+            say('[sync] HTTP %s：请求被服务端拒绝' % e.code)
+            return False, 'HTTP %s' % e.code
     except Exception as e:
         say(f'[sync] 请求失败：{e}')
         return False, f'请求失败：{e}'

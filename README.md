@@ -99,19 +99,34 @@ build.bat
 
 ## 已知问题
 
-### 积分数据不刷新，日志出现 `HTTP 401`
+### 桌面登录态被加密 → 自动改用浏览器 cookie（需偶尔更新）
 
 较新版本的 WorkBuddy 客户端把本机登录态里的 `accessToken` 从**明文 JWT** 改成了
-**加密信封**（`{"$wbEncrypted": 1, "envelope": "..."}`）。本工具需要明文令牌才能调用
-官方计费接口，因此会拿到 401：
+**加密信封**（`{"$wbEncrypted": 1, "envelope": "..."}`；密钥由客户端运行时持有，
+本地无法解密）。因此**不再可能**从登录态直接取到明文令牌。
 
-- 表现：积分余额 / 账单**停在最后一次成功同步的缓存**，不再更新；
-- 与网络、账号状态无关，重新登录客户端不一定能解决；
-- **Token / 会话明细不受影响** —— 它读的是本机会话记录文件（`~/.workbuddy/projects/*.jsonl`），不经过登录态；
-- 积分真值请以网页端为准。
+本工具的应对方式：**自动回退到浏览器 cookie 通道**调用官方计费接口。
 
-诊断方法：对比登录态文件的 `auth.accessToken` 字段——是字符串（JWT）还是
-`{"$wbEncrypted": ...}` 对象，即可判断是否命中该问题。
+```
+resolve_auth()   桌面登录态(Bearer) → 失效/加密 → 浏览器 cookie 兜底
+```
+
+- 凭据文件：`~/.workbuddy/server_usage.json`（只存本机，不外传）
+- cookie 会过期（一般数天到数周）。过期后日志提示「cookie 可能已过期」，按下面三步更新：
+
+```bat
+:: 1) 浏览器登录 https://www.codebuddy.cn/profile/plans-usage
+:: 2) F12 -> Network -> 点任一请求 -> 复制请求头里整行 Cookie 的值
+:: 3) 运行（读剪贴板、自动校验并保存）
+python scripts\_tools\save_cookie.py
+
+:: 查看当前 cookie 是否有效、还剩多久
+python scripts\_tools\save_cookie.py --check
+```
+
+- **Token / 会话明细不受影响** —— 读的是本机会话记录文件（`~/.workbuddy/projects/*.jsonl`），
+  完全不经过登录态；
+- 完整看板的「凭据自检」区会显示当前实际使用的凭据类型。
 
 ## 免责声明
 
