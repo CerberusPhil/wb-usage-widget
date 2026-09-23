@@ -192,6 +192,29 @@
   .progress { height:6px; background:var(--nodata); border:1px solid var(--nodata-bd); margin-top:9px; }
   .progress > i { display:block; height:100%; background:var(--accent2); }
 
+  /* ---------- Token 三类构成（积分 / 免费 / 外部API） ---------- */
+  .csplit { margin-top:9px; }
+  .cbar { display:flex; height:6px; border-radius:3px; overflow:hidden; background:var(--dim); margin-bottom:5px; }
+  .cbar > i { display:block; height:100%; width:0; transition:width .9s cubic-bezier(.22,1,.36,1); }
+  .cbar > i.sc { background:var(--accent); }
+  .cbar > i.sf { background:#5aa9e6; }
+  .cbar > i.se { background:#d4a017; }
+  .clegend { display:flex; gap:10px; flex-wrap:wrap; font-size:calc(9.5px * var(--fs,1)); color:var(--mid); line-height:1.5; }
+  .clegend b { color:var(--bright); font-weight:700; }
+  .clegend .k { display:inline-block; width:7px; height:7px; border-radius:2px; margin-right:4px; vertical-align:middle; }
+  .clegend .k.sc { background:var(--accent); }
+  .clegend .k.sf { background:#5aa9e6; }
+  .clegend .k.se { background:#d4a017; }
+  .stoktrack.cseg { display:flex; }
+  .cseg .stokfill.sf { background:#5aa9e6; }
+  .cseg .stokfill.se { background:#d4a017; }
+  .owntag { display:inline-block; font-size:calc(10px * var(--fs,1)); padding:0 6px; border-radius:2px;
+            font-weight:600; border:1px solid var(--dim); color:var(--mid); white-space:nowrap; }
+  .owntag.sc { border-color:var(--accent); color:var(--accent); }
+  .owntag.sf { border-color:#5aa9e6; color:#5aa9e6; }
+  .owntag.se { border-color:#d4a017; color:#d4a017; }
+  .owntag.mix { border-style:dashed; }
+
   h2 { font-size:calc(13px * var(--fs,1)); font-weight:700; margin:24px 0 10px; color:var(--accent); letter-spacing:1.5px; }
   h2::before { content:'// '; color:var(--accent2); }
   h2 .hint { font-weight:500; color:var(--dim); font-size:calc(11px * var(--fs,1)); letter-spacing:0; }
@@ -214,7 +237,8 @@
   .cal-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; margin-bottom:6px; }
   .cal-head span { font-size:calc(10px * var(--fs,1)); color:var(--faint); text-align:center; font-weight:600; letter-spacing:1px; }
   .cal-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; }
-  .cal-cell { position:relative; height:54px; border-radius:2px; cursor:pointer; }
+  .cal-cell { position:relative; height:54px; border-radius:2px; cursor:pointer; overflow:hidden; }
+  .cal-nz { position:absolute; left:0; bottom:0; height:5px; width:0; background:#d4a017; }
   .cal-cell .dnum { position:absolute; top:4px; left:6px; font-size:calc(11px * var(--fs,1)); font-weight:600;
                     color:var(--cn); text-shadow:var(--cns); }
   .cal-cell:hover { outline:1px solid var(--text); outline-offset:1px; }
@@ -236,6 +260,7 @@
   .c1 { background:var(--c1); } .c2 { background:var(--c2); } .c3 { background:var(--c3); } .c4 { background:var(--c4); } .c5 { background:var(--c5); }
   .lg-free { display:inline-block; width:12px; height:12px; border:1px solid var(--accent2); }
   .lg-today { display:inline-block; width:12px; height:12px; box-shadow:inset 0 0 0 2px var(--alert); }
+  .lg-nz { display:inline-block; width:12px; height:5px; border-radius:1px; background:#d4a017; }
 
   /* ---------- tooltip ---------- */
   #tooltip { position:fixed; display:none; background:var(--tip-bg); color:var(--text); font-size:calc(12px * var(--fs,1));
@@ -295,7 +320,7 @@
   .sscroll::-webkit-scrollbar { width:8px; }
   .sscroll::-webkit-scrollbar-thumb { background:var(--th-bd); }
   .sess { border-bottom:1px solid var(--row-bd); padding:9px 4px; cursor:pointer; }
-  .sess.sdayrow { cursor:default; padding:7px 4px; }
+  .sess.sdayrow { padding:7px 4px; }
   .sess:hover { background:var(--hover); }
   .sess:last-child { border-bottom:none; }
   .shead { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
@@ -387,7 +412,8 @@
   </span>
   <details class="moreinfo mi-inline"><summary>&#9432; 说明</summary>
     <div class="mi-body">总消耗：按总 Token 降序 · 每页 5 个 · 点击会话展开「按模型」拆分。<br>
-    按天：所选日期各会话消耗（柱状图以当天最高 Token 为 100% 归一，数值为 Token 绝对值）；◀▶ / 下拉切换日期，点日历日期自动联动。<br>
+    按天：所选日期各会话消耗（柱状条以当天最高 Token 为 100% 归一，数值为 Token 绝对值）；<b>点任一会话可展开「按模型」明细</b>（含各自 Token 与计费归属）；◀▶ / 下拉切换日期，点日历日期自动联动。<br>
+    <b>Token 三类归属</b>（本机口径 · 按请求级判定）：<b>积分</b> = 服务端返回了积分（credit &gt; 0）；<b>免费/未计费</b> = 平台免费模型（Hy3 / Hy4-preview）或服务端未返回积分的请求；<b>外部API</b> = 自定义模型（BYOK，如智谱 GLM 资源包系列 / MiMo），经自建 Key 直连外部服务商、不进 WB 账单。三类之和 = 当日/会话 Token 总量。<br>
     口径：Token 为本机 jsonl 视角（服务端不含 token 字段）；会话按 sessionId 跨天合并；标「子代理」的是 Explore / Plan 等子任务的独立会话（标题用首条消息回填）。</div>
   </details>
 </h2>
@@ -492,6 +518,24 @@ function setCardMetric(m){
   renderCards();
 }
 function flipCardMetric(){ setCardMetric(cardMetric==='credit' ? 'token' : 'credit'); }
+/* 三类 Token 构成条（积分 / 免费 / 外部API）+ 图例 */
+function tokSplitBlock(c, f, e){
+  const tot = (c || 0) + (f || 0) + (e || 0);
+  if(tot <= 0) return '';
+  const pc = c/tot*100, pf = f/tot*100, pe = e/tot*100;
+  const nz = pf + pe;           // 非积分合计 = 免费 + 外部API
+  return `<div class="csplit">
+    <div class="cbar" title="积分 ${pc.toFixed(1)}% · 免费 ${pf.toFixed(1)}% · 外部API ${pe.toFixed(1)}%">
+      <i class="sc" data-w="${pc.toFixed(1)}"></i><i class="sf" data-w="${pf.toFixed(1)}"></i><i class="se" data-w="${pe.toFixed(1)}"></i>
+    </div>
+    <div class="clegend">
+      <span><span class="k sc"></span>积分 <b>${pc.toFixed(1)}%</b></span>
+      <span><span class="k sf"></span>免费/未计费 <b>${pf.toFixed(1)}%</b></span>
+      <span><span class="k se"></span>外部API <b>${pe.toFixed(1)}%</b></span>
+      <span style="color:var(--faint)">非积分合计 <b>${nz.toFixed(1)}%</b></span>
+    </div>
+  </div>`;
+}
 function renderCards(){
   const keys = Object.keys(DAYS).sort();
   const genDay = DATA.generated_at.slice(0,10);
@@ -501,12 +545,23 @@ function renderCards(){
   keys.forEach(k=>{ if(k.startsWith(monthKey)){ month += DAYS[k].credit; monthN += DAYS[k].req_n; monthFree += DAYS[k].free_n; } });
   /* 本机 Token（jsonl 视角）：今日 / 本月 */
   const tokToday = TOK_DAYS[genDay] || {tokens:0, n:0};
-  let tokMonth = 0, tokMonthN = 0;
-  Object.keys(TOK_DAYS).forEach(k=>{ if(k.startsWith(monthKey)){ tokMonth += TOK_DAYS[k].tokens || 0; tokMonthN += TOK_DAYS[k].n || 0; } });
+  let tokMonth = 0, tokMonthN = 0, tokMonthC = 0, tokMonthF = 0, tokMonthE = 0;
+  Object.keys(TOK_DAYS).forEach(k=>{ if(k.startsWith(monthKey)){
+    tokMonth += TOK_DAYS[k].tokens || 0; tokMonthN += TOK_DAYS[k].n || 0;
+    tokMonthC += TOK_DAYS[k].tc || 0; tokMonthF += TOK_DAYS[k].tf || 0; tokMonthE += TOK_DAYS[k].te || 0;
+  } });
+  /* 三类 Token（本机口径）：积分 / 免费 / 外部API */
+  const splitToday = tokSplitBlock(tokToday.tc || 0, tokToday.tf || 0, tokToday.te || 0);
+  const splitMonth = tokSplitBlock(tokMonthC, tokMonthF, tokMonthE);
+  const tok3Today = (tokToday.tc||0) + (tokToday.tf||0) + (tokToday.te||0);
+  const tok3Month = tokMonthC + tokMonthF + tokMonthE;
   const tokMode = cardMetric === 'token';
   const unitTxt = tokMode ? 'Token' : '积分';
-  const todayTip = `点击切换 积分 ⇄ Token｜今日 ${today.req_n} 次请求 · 免费 ${today.free_n} 次｜本机 Token ${tokToday.n || 0} 次请求（服务端账单不含 token 字段）`;
-  const monthTip = `点击切换 积分 ⇄ Token｜本月 ${monthN} 次请求 · 免费 ${monthFree} 次｜本机 Token ${tokMonthN} 次请求（服务端账单不含 token 字段）`;
+  const _p = (x, t) => (t > 0 ? (x / t * 100).toFixed(1) + '%' : '—');
+  const todayTip = `点击切换 积分 ⇄ Token｜今日 ${today.req_n} 次请求 · 免费 ${today.free_n} 次｜本机 Token ${tokToday.n || 0} 次请求`
+    + `｜Token 构成：积分 ${_p(tokToday.tc || 0, tok3Today)} · 免费 ${_p(tokToday.tf || 0, tok3Today)} · 外部API ${_p(tokToday.te || 0, tok3Today)}`;
+  const monthTip = `点击切换 积分 ⇄ Token｜本月 ${monthN} 次请求 · 免费 ${monthFree} 次｜本机 Token ${tokMonthN} 次请求`
+    + `｜Token 构成：积分 ${_p(tokMonthC, tok3Month)} · 免费 ${_p(tokMonthF, tok3Month)} · 外部API ${_p(tokMonthE, tok3Month)}`;
   const todayVal = tokMode ? (tokToday.tokens || 0) : today.credit;
   const monthVal = tokMode ? tokMonth : month;
   const b = DATA.balance;
@@ -538,16 +593,21 @@ function renderCards(){
       <div class="pattern p-gray">TODAY</div>
       <div class="label">今日消耗（${genDay}）</div>
       <div class="value num"><span id="vToday">0</span><span class="unit">${unitTxt}</span></div>
+      ${tokMode ? splitToday : ''}
     </div>
     <div class="magi-card flipable" onclick="flipCardMetric()" title="${monthTip}">
       <div class="magi-tag">BALTHASAR-2</div>
       <div class="pattern p-gray">MONTH</div>
       <div class="label">本月消耗（${monthKey}）</div>
       <div class="value num"><span id="vMonth">0</span><span class="unit">${unitTxt}</span></div>
+      ${tokMode ? splitMonth : ''}
     </div>
     ${balCard}`;
   cardTargets = { today: todayVal, month: monthVal, bal: b ? b.remain : null, fmtT: tokMode };
   replayCardNums();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll('#cards .cbar > i').forEach(el=>{ el.style.width = (el.dataset.w || 0) + '%'; });
+  }));
   $('#refreshedAt').textContent = 'DATA ' + DATA.generated_at;
 }
 
@@ -629,7 +689,15 @@ function renderCal(){
         cls += ' nodata';
       }
       if(dk===todayKey) cls += ' today';
-      cells += `<div class="${cls}" data-dk="${dk}"><span class="dnum">${d.getDate()}</span></div>`;
+      let nzBar = '';
+      if(heatMetric === 'token'){
+        const t0 = TOK_DAYS[dk];
+        if(t0 && t0.tokens > 0){
+          const nzPct = ((t0.tf || 0) + (t0.te || 0)) / t0.tokens * 100;
+          if(nzPct > 0) nzBar = `<i class="cal-nz" style="width:${nzPct.toFixed(1)}%"></i>`;
+        }
+      }
+      cells += `<div class="${cls}" data-dk="${dk}"><span class="dnum">${d.getDate()}</span>${nzBar}</div>`;
     }
     html += `<div class="cal-grid">${cells}</div>`;
     html += `</div>`;
@@ -644,7 +712,8 @@ function renderCal(){
   let legend = `<span>少</span><div class="cell c1"></div><div class="cell c2"></div><div class="cell c3"></div><div class="cell c4"></div><div class="cell c5"></div>
      <span>多（${heatMetric==='credit'?'积分':(heatMetric==='token'?'Token':'请求数')}）</span>`;
   if(heatMetric==='credit') legend += `<span style="margin-left:14px"></span><span class="lg-free"></span><span>免费（0 积分 · 有请求）</span>`;
-  if(heatMetric==='token') legend += `<span style="margin-left:14px"></span><span style="color:var(--faint)">Token 为本机口径 · 无本机记录 = 灰格</span>`;
+  if(heatMetric==='token') legend += `<span style="margin-left:14px"></span><span class="lg-nz"></span><span>底条 = 非积分占比（免费 + 外部API）</span>`
+    + `<span style="margin-left:14px"></span><span style="color:var(--faint)">Token 为本机口径 · 无本机记录 = 灰格</span>`;
   legend += `<span style="margin-left:14px"></span><span class="lg-today"></span><span>今日</span>`;
   $('#legend').innerHTML = legend;
   if(!box.dataset.bound){
@@ -670,7 +739,14 @@ function showTip(e, dk){
   let html = `<div class="tt-title">${cnDate(dk)}</div>`;
   html += `<div class="mrow"><span>积分合计</span><span class="mv num">${rec.credit.toFixed(2)}</span></div>`;
   const td0 = TOK_DAYS[dk];
-  if(td0 && td0.tokens) html += `<div class="mrow"><span>本机 Token</span><span class="mv num">${fmtTok(td0.tokens)}</span></div>`;
+  if(td0 && td0.tokens){
+    html += `<div class="mrow"><span>本机 Token</span><span class="mv num">${fmtTok(td0.tokens)}</span></div>`;
+    const nzTok = (td0.tf || 0) + (td0.te || 0);
+    const nzPct2 = nzTok / td0.tokens * 100;
+    html += `<div class="mrow"><span>　积分 / 非积分</span><span class="mv num">${(100-nzPct2).toFixed(1)}% / ${nzPct2.toFixed(1)}%</span></div>`;
+    if(td0.tf) html += `<div class="mrow"><span>　· 免费/未计费</span><span class="mv num">${fmtTok(td0.tf)}</span></div>`;
+    if(td0.te) html += `<div class="mrow"><span>　· 外部 API</span><span class="mv num">${fmtTok(td0.te)}</span></div>`;
+  }
   html += `<div class="mrow"><span>请求 / 免费</span><span class="mv num">${rec.req_n} / ${rec.free_n}</span></div>`;
   if(rec.other_credit) html += `<div class="mrow"><span>本机 / 其他端</span><span class="mv num">${(rec.local_credit||0).toFixed(2)} / ${rec.other_credit.toFixed(2)}</span></div>`;
   const ms = Object.entries(rec.by_model||{}).filter(x=>x[1]>0);
@@ -852,6 +928,27 @@ function sessIndex(){
   }
   return _sidx;
 }
+/* 三段堆叠 Token 条（按当天最大会话为 100% 归一） */
+function segBarHtml(c, f, e, maxTok, tot){
+  const mx = Math.max(1, maxTok), w = x => (x / mx * 100).toFixed(2);
+  return `<div class="stokrow"><span class="stoklab">Token</span>
+    <span class="stoktrack cseg"><i class="stokfill sc" data-w="${w(c)}"></i><i class="stokfill sf" data-w="${w(f)}"></i><i class="stokfill se" data-w="${w(e)}"></i></span>
+    <span class="stokval num">${fmtTok(tot)}</span></div>`;
+}
+/* 单一模型的计费归属标签 */
+const OWN_LBL = {
+  sc: ['积分', '有积分消耗（rawUsage.credit > 0）'],
+  sf: ['免费', '平台免费模型，或服务端未返回积分的请求（未计费）'],
+  se: ['外部API', '自定义模型（BYOK）：直连外部服务商，不进 WB 账单']
+};
+function ownTag(tc, tf, te){
+  const hit = [['积分', tc || 0, 'sc'], ['免费', tf || 0, 'sf'], ['外部API', te || 0, 'se']].filter(x => x[1] > 0);
+  if(!hit.length) return '<span style="color:var(--faint)">—</span>';
+  if(hit.length > 1) return '<span class="owntag mix" title="该模型在当天既有计积分、也有未计费的请求">混合</span>';
+  const L = OWN_LBL[hit[0][2]];
+  return `<span class="owntag ${hit[0][2]}" title="${L[1]}">${L[0]}</span>`;
+}
+
 function renderSessDay(){
   const panel = $('#sessDayPanel'); if(!panel) return;
   const dk = selected;
@@ -862,6 +959,7 @@ function renderSessDay(){
     const hr = (v.hit || 0) / Math.max(1, (v.hit || 0) + (v.miss || 0)) * 100;
     return { sid: sid, n: v.n||0, inp: v.inp||0, out: v.out||0, think: v.think||0,
              hit_rate: hr, credit: v.credit||0, tokens: v.tokens||0,
+             tc: v.tc||0, tf: v.tf||0, te: v.te||0, models: v.models || [],
              title: meta.title || '', title_src: meta.title_src, sub: meta.sub, agent: meta.agent };
   }).sort((a,b)=>b.tokens-a.tokens);
   let totT = 0, totC = 0;
@@ -877,18 +975,39 @@ function renderSessDay(){
     const subTag = r.sub ? `<span class="subtag">子代理${r.agent ? ' · ' + esc(r.agent) : ''}</span>` : '';
     const ttip = esc((r.title || '') + (r.title_src === 'derived' ? '（标题取自会话首条消息）' : ''));
     const barW = ((r.tokens || 0) / maxTok * 100).toFixed(2);
-    return `<div class="sess sdayrow">
+    const trs = (r.models || []).map(m=>`<tr>
+      <td><span class="model-tag">${esc(m.name)}</span></td>
+      <td class="r num">${m.n}</td>
+      <td class="r num">${fmtTok(m.inp)}</td>
+      <td class="r num">${fmtTok(m.out)}</td>
+      <td class="r num">${fmtTok(m.think)}</td>
+      <td class="r num">${(m.hit_rate||0).toFixed(1)}%</td>
+      <td class="r num"><b>${fmtTok(m.tokens)}</b></td>
+      <td>${ownTag(m.tc, m.tf, m.te)}</td></tr>`).join('');
+    const det = (r.models || []).length
+      ? `<div class="sdetail" style="display:none"><table>
+          <tr><th>模型 MODEL</th><th class="r">请求</th><th class="r">输入</th><th class="r">输出</th><th class="r">思考</th><th class="r">命中率</th><th class="r">Token</th><th>归属</th></tr>${trs}</table></div>`
+      : '';
+    return `<div class="sess sdayrow" onclick="toggleSess(this, event)">
       <div class="shead">
+        <span class="sarrow">&#9656;</span>
         <span class="stitle" title="${ttip}">${esc(r.title || r.sid.slice(0,8))}</span>
         ${subTag}
         <span class="ssid num">${r.sid.slice(0,8)}</span>
         <span class="srange num">${r.n} 请求 · 积分 ${r.credit.toFixed(1)}</span>
       </div>
-      <div class="stokrow"><span class="stoklab">Token</span><span class="stoktrack"><i class="stokfill" data-w="${barW}"></i></span><span class="stokval num">${fmtTok(r.tokens)}</span></div>
+      ${segBarHtml(r.tc, r.tf, r.te, maxTok, r.tokens)}
       <div class="sstats num">输入 ${fmtTok(r.inp)} · 输出 ${fmtTok(r.out)} · 思考 ${fmtTok(r.think)} · 命中率 <b>${r.hit_rate.toFixed(1)}%</b></div>
+      ${det}
     </div>`;
   }).join('') : '<div style="color:var(--faint);font-size:12px;padding:8px 0">该日无本机会话记录</div>';
-  panel.innerHTML = head + body;
+  const leg = `<div class="clegend" style="margin:2px 0 9px 0">
+    <span><span class="k sc"></span>积分 Token</span>
+    <span><span class="k sf"></span>免费/未计费 Token</span>
+    <span><span class="k se"></span>外部 API Token</span>
+    <span style="color:var(--faint)">点任一会话可展开「按模型」明细</span>
+  </div>`;
+  panel.innerHTML = head + leg + body;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     panel.querySelectorAll('.stokfill').forEach(el=>{ el.style.width = el.dataset.w + '%'; });
   }));
