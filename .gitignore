@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 *.log
 build/
+
+# exe / zip 不进仓库：仅随 GitHub Releases 分发（避免每版 18MB 的 exe 撑大仓库体积）
+dist/*.exe
+*.zip

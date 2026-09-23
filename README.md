@@ -11,7 +11,7 @@
 
 ## 功能
 
-**桌面挂件（`dist/WBCreditWidget.exe`）**
+**桌面挂件（`WBCreditWidget.exe`）**
 - 积分余额（点击跳转成长计划页）
 - 今日 / 本月消耗 —— 点击卡片切换 **积分 ⇄ Token** 双口径
 - **今日会话消耗 TOP 榜** —— 按 Token 排行，柱状图直观对比
@@ -29,7 +29,8 @@
 
 ## 快速开始（免安装）
 
-1. 下载 [`dist/WBCreditWidget.exe`](dist/WBCreditWidget.exe)，双击运行
+1. 从 [**Releases**](https://github.com/CerberusPhil/wb-usage-widget/releases/latest) 下载最新版 zip
+   （`WBCreditWidget_vX.Y.zip`），解压后双击里面的 `WBCreditWidget.exe`
 2. 前提：本机已安装 WorkBuddy 客户端并保持登录
 3. 首次启动等待 10~60 秒完成首次同步（窗口自动刷新）
 
@@ -84,8 +85,8 @@ scripts\stop_billing_widget.bat
 │   ├── version_info.txt      # Windows 版本资源（产品名/描述 = Workbuddy积分看板）
 │   ├── build.bat             # 一键重新打包
 │   └── 使用说明.txt
-└── dist/
-    └── WBCreditWidget.exe    # 免安装可执行文件
+└── dist/                     # 构建产物目录（exe 不入库，仅随 Releases 分发）
+    └── WBCreditWidget.exe    # 免安装可执行文件（git 忽略）
 ```
 
 ## 从源码打包 exe
