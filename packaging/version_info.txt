@@ -2,8 +2,8 @@
 # 用法：在 WBCreditWidget.spec 的 EXE(...) 里加 version='version_info.txt'
 VSVersionInfo(
     ffi=FixedFileInfo(
-        filevers=(1, 5, 0, 0),
-        prodvers=(1, 5, 0, 0),
+        filevers=(1, 7, 0, 0),
+        prodvers=(1, 7, 0, 0),
         mask=0x3F,
         flags=0x0,
         OS=0x40004,
@@ -19,12 +19,12 @@ VSVersionInfo(
                     [
                         StringStruct('CompanyName', '非官方个人工具'),
                         StringStruct('FileDescription', 'Workbuddy积分看板'),
-                        StringStruct('FileVersion', '1.5.0.0'),
+                        StringStruct('FileVersion', '1.7.0.0'),
                         StringStruct('InternalName', 'Workbuddy积分看板'),
                         StringStruct('LegalCopyright', '仅供个人查看自己账号用量'),
                         StringStruct('OriginalFilename', 'WBCreditWidget.exe'),
                         StringStruct('ProductName', 'Workbuddy积分看板'),
-                        StringStruct('ProductVersion', '1.5.0.0'),
+                        StringStruct('ProductVersion', '1.7.0.0'),
                     ],
                 )
             ]
