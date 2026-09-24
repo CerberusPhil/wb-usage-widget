@@ -407,8 +407,8 @@
 
 <h2>会话消耗 <span class="hint">会话 × 积分 / Token · SESSION</span>
   <span class="seg" id="sessSeg">
-    <span class="sg on" data-m="total" onclick="setSessMode('total')">总消耗</span>
-    <span class="sg" data-m="day" onclick="setSessMode('day')">按天</span>
+    <span class="sg" data-m="total" onclick="setSessMode('total')">总消耗</span>
+    <span class="sg on" data-m="day" onclick="setSessMode('day')">按天</span>
   </span>
   <details class="moreinfo mi-inline"><summary>&#9432; 说明</summary>
     <div class="mi-body">总消耗：按总 Token 降序 · 每页 5 个 · 点击会话展开「按模型」拆分。<br>
@@ -767,7 +767,7 @@ function hideTip(){ $('#tooltip').style.display='none'; }
 
 /* ---------- 日期联动（详单 + 会话消耗 · ◀ 日期下拉 ▶ + 日历高亮） ---------- */
 let dayList = [];
-let sessMode = 'total';
+let sessMode = 'day';
 let sessPage = 0;
 const SESS_PAGE = 5;
 function buildDayList(){ dayList = Object.keys(DAYS).sort(); }
@@ -1132,7 +1132,7 @@ function renderFoot(){
 
 buildThemeBar(); syncThemeBar();
 buildDayList();
-renderCards(); renderCal(); renderDetail(selected); renderModels(); renderFoot(); renderSource(); setSessMode('total');
+renderCards(); renderCal(); renderDetail(selected); renderModels(); renderFoot(); renderSource(); setSessMode('day');
 </script>
 </body>
 </html>
