@@ -83,16 +83,23 @@ def _window_title():
 
 
 def focus_existing_window(timeout=3.0):
-    """把已有挂件窗口带到前台（尽力而为，可能受系统焦点策略限制）。"""
+    """把已有挂件窗口带到前台（尽力而为，可能受系统焦点策略限制）。
+
+    找窗用 billing_widget.find_hwnd（标题 + 进程映像名过滤，排除 Win11 标签代理窗），
+    不能用 FindWindowW —— 否则会命中浏览器同名标签页的 TabProxyWindow 幽灵窗。
+    """
     import ctypes
+    try:
+        import billing_widget as bw
+        me = os.path.basename(sys.executable).lower()
+    except Exception:
+        return False
     u = ctypes.windll.user32
-    u.FindWindowW.restype = ctypes.c_void_p
-    u.FindWindowW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p]
     u.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
     u.SetForegroundWindow.argtypes = [ctypes.c_void_p]
     deadline = time.time() + timeout
     while time.time() < deadline:
-        hwnd = u.FindWindowW(None, _window_title())
+        hwnd = bw.find_hwnd(_window_title(), exe_name=me)
         if hwnd:
             u.ShowWindow(ctypes.c_void_p(hwnd), 9)          # SW_RESTORE
             u.SetForegroundWindow(ctypes.c_void_p(hwnd))

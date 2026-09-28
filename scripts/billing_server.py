@@ -179,6 +179,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split('?')[0]
+        if path == '/__dbg':
+            try:
+                from urllib.parse import urlparse, parse_qs
+                m = (parse_qs(urlparse(self.path).query).get('m') or [''])[0]
+                import os as _os, time as _t
+                base = _os.environ.get('LOCALAPPDATA') or _os.path.expanduser('~')
+                d = _os.path.join(base, 'WBCreditWidget')
+                _os.makedirs(d, exist_ok=True)
+                with open(_os.path.join(d, 'widget.log'), 'a', encoding='utf-8') as f:
+                    f.write('[%s] DBG-HTTP %s\n' % (_t.strftime('%Y-%m-%d %H:%M:%S'), m))
+            except Exception:
+                pass
+            self._send(200, 'text/plain; charset=utf-8', b'ok')
+            return
         if path == '/api/data':
             body = json.dumps(STORE.payload(), ensure_ascii=False).encode('utf-8')
             self._send(200, 'application/json; charset=utf-8', body)

@@ -46,6 +46,27 @@ BROWSERS = [
 ]
 
 
+def log(msg):
+    """挂件日志（2026-09-24）：与 wb_widget_app.log 同格式，落 %LOCALAPPDATA%\\WBCreditWidget\\widget.log。
+
+    ⚠️ 本模块的 drag_begin/drag_to/dbg 直接调用 log()——过去没定义、运行时 NameError，
+    把拖拽诊断日志全炸掉（拖不动排障的断点之一）。billing_widget 被单独 import 时也必须能落日志。
+    """
+    line = '[%s] %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), msg)
+    try:
+        base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+        d = os.path.join(base, 'WBCreditWidget')
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, 'widget.log'), 'a', encoding='utf-8') as f:
+            f.write(line)
+    except Exception:
+        pass
+    try:
+        print(line.rstrip())
+    except Exception:
+        pass
+
+
 def server_up(timeout=1.5):
     try:
         import urllib.request
@@ -97,16 +118,111 @@ def _user32():
     u.GetWindowRect.restype = ctypes.c_bool
     u.GetDpiForWindow.argtypes = [ctypes.c_void_p]
     u.GetDpiForWindow.restype = ctypes.c_uint
+    # 句柄安全（64 位下 int→c_void_p 显式声明，防截断；2026-09-24 拖拽排障加固）
+    u.GetClassNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+    u.GetClassNameW.restype = ctypes.c_int
+    u.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
+    u.GetWindowThreadProcessId.restype = ctypes.c_uint
+    u.InternalGetWindowText.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+    u.InternalGetWindowText.restype = ctypes.c_int
     return u
 
 
-def _hwnd(timeout=6.0):
-    """按窗口标题找 hwnd（等 GUI 起来，最多 timeout 秒）。"""
+TABPROXY_CLS = 'Windows.Internal.Shell.TabProxyWindow'   # Win11 标签代理窗（explorer 所有，标题照抄标签页）
+
+
+def _win_title_of(u, hwnd):
+    """读窗口标题：InternalGetWindowText 直读缓存（跨进程不发消息，挂起的窗也能读到）。"""
+    buf = ctypes.create_unicode_buffer(256)
     try:
-        u = _user32()
+        n = u.InternalGetWindowText(hwnd, buf, 256)
+        if n:
+            return buf.value
+    except Exception:
+        pass
+    try:
+        u.GetWindowTextW(hwnd, buf, 256)
+    except Exception:
+        pass
+    return buf.value
+
+
+def _exe_of_pid(pid):
+    """进程映像名（小写），失败返回 ''。"""
+    try:
+        k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        k32.OpenProcess.restype = ctypes.c_void_p
+        h = k32.OpenProcess(0x1000, 0, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return ''
+        try:
+            buf = ctypes.create_unicode_buffer(32768)
+            n = ctypes.c_uint(32768)
+            if k32.QueryFullProcessImageNameW(ctypes.c_void_p(h), 0, buf, ctypes.byref(n)):
+                return os.path.basename(buf.value).lower()
+        finally:
+            k32.CloseHandle(ctypes.c_void_p(h))
+    except Exception:
+        pass
+    return ''
+
+
+def find_hwnd(title, exe_name=None, pid=None):
+    """精确找窗：标题 + 归属进程（映像名或 pid），排除 Win11 标签代理窗。
+
+    不能用 FindWindowW(None, title) —— 浏览器开着同名标签页时（如完整看板），
+    Win11 会造 explorer 的 TabProxyWindow 幽灵窗、标题与真窗完全相同，
+    FindWindowW 会命中幽灵窗 → 拖拽/图标全打偏（2026-09-24 踩坑实录）。
+    """
+    u = _user32()
+    u.EnumWindows.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    want_exe = (exe_name or '').lower()
+    found = []
+    WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+    def cb(hwnd, _lp):
+        cls = ctypes.create_unicode_buffer(128)
+        u.GetClassNameW(hwnd, cls, 128)
+        if cls.value == TABPROXY_CLS:
+            return True
+        if _win_title_of(u, hwnd) != title:
+            return True
+        wpid = ctypes.c_ulong()
+        u.GetWindowThreadProcessId(hwnd, ctypes.byref(wpid))
+        if pid is not None and wpid.value != pid:
+            return True
+        if want_exe and _exe_of_pid(wpid.value) != want_exe:
+            return True
+        found.append(hwnd)
+        return True
+
+    u.EnumWindows(WNDENUMPROC(cb), 0)
+    return found[0] if found else None
+
+
+def _hwnd(timeout=6.0):
+    """找本挂件主窗口 hwnd：pywebview 自带句柄优先，退化为「标题 + 自有进程」过滤查找。"""
+    try:
+        import webview
+        wins = getattr(webview, 'windows', None)
+        w = wins[0] if wins else None
+        native = getattr(w, 'native', None) if w is not None else None
+        h = getattr(native, 'Handle', None) if native is not None else None
+        if h:
+            try:
+                return int(h)
+            except Exception:
+                try:
+                    return int(h.ToInt64())
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    try:
+        me = os.path.basename(sys.executable).lower()
         deadline = time.time() + timeout
         while time.time() < deadline:
-            h = u.FindWindowW(None, TITLE)
+            h = find_hwnd(TITLE, pid=os.getpid()) or find_hwnd(TITLE, exe_name=me)
             if h:
                 return h
             time.sleep(0.1)
@@ -206,38 +322,63 @@ class WidgetApi:
         return False
 
     # ---------- 整窗拖拽（自实现，替代 pywebview easy_drag） ----------
+    def dbg(self, m):
+        """JS 侧诊断探针（拖拽排障用，轻量、留作常备）。"""
+        log('DBG js: %s' % m)
+        return True
+
     def drag_begin(self):
         """记录窗口基点与 DPI 缩放（后续按增量移动）。"""
         try:
             u = _user32()
             hwnd = _hwnd(timeout=1.5)
             if not hwnd:
+                log('DBG drag_begin: hwnd NOT FOUND')
                 return False
             r = _RECT()
-            u.GetWindowRect(hwnd, ctypes.byref(r))
+            if not u.GetWindowRect(hwnd, ctypes.byref(r)):
+                log('DBG drag_begin: hwnd=%s GetWindowRect FAILED' % hwnd)
+                self._drag = None
+                return False
+            cls = ctypes.create_unicode_buffer(128)
+            u.GetClassNameW(hwnd, cls, 128)
             try:
                 scale = u.GetDpiForWindow(hwnd) / 96.0
             except Exception:
                 scale = 1.0
-            self._drag = {'hwnd': hwnd, 'x0': r.left, 'y0': r.top, 'scale': scale}
+            if not scale or scale < 0.5 or scale > 5:      # DPI 异常兜底：scale=0 会让所有位移归零
+                log('DBG drag_begin: hwnd=%s bad scale=%s -> 1.0' % (hwnd, scale))
+                scale = 1.0
+            self._drag = {'hwnd': hwnd, 'x0': r.left, 'y0': r.top, 'scale': scale, 'n': 0}
+            log('DBG drag_begin: hwnd=%s cls=%s rect=(%s,%s,%s,%s) scale=%s'
+                % (hwnd, cls.value, r.left, r.top, r.right, r.bottom, round(scale, 3)))
             return True
-        except Exception:
+        except Exception as e:
+            try:
+                log('DBG drag_begin: EXC %r' % e)
+            except Exception:
+                pass
             return False
 
     def drag_to(self, dx, dy):
         """按屏幕增量移动窗口（保持原抓取点跟随光标）。"""
         d = getattr(self, '_drag', None)
         if not d:
+            log('DBG drag_to: no _drag state (drag_begin 未先行成功)')
             return False
         try:
             u = _user32()
             SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE = 0x0001, 0x0004, 0x0010
             x = int(d['x0'] + float(dx) * d['scale'])
             y = int(d['y0'] + float(dy) * d['scale'])
-            u.SetWindowPos(d['hwnd'], None, x, y, 0, 0,
-                           SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE)
-            return True
-        except Exception:
+            ok = bool(u.SetWindowPos(d['hwnd'], None, x, y, 0, 0,
+                                     SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE))
+            if d.get('n', 0) < 3:
+                d['n'] = d.get('n', 0) + 1
+                log('DBG drag_to #%d: dx=%s dy=%s -> (%d,%d) ok=%s' % (d['n'], dx, dy, x, y, ok))
+            return ok
+        except Exception as e:
+            log('DBG drag_to: EXC %s' % e)
             return False
 
     def drag_end(self):
