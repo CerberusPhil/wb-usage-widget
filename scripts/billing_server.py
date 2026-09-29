@@ -140,7 +140,8 @@ display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
 color:#9a7c3a;text-align:left;line-height:1.75;word-break:break-all}
 a{color:#ffd23d}</style></head><body><div class="box">
 <div class="t">Workbuddy积分看板</div><div>暂无账单数据</div>
-<div style="font-size:12px;color:#9a7c3a">首次同步约需数秒，本页每 10 秒自动刷新</div>
+<div style="font-size:12px;color:#9a7c3a">首次使用请先登录账号；首次同步约需数秒，本页每 10 秒自动刷新</div>
+{{LOGIN_BTN}}
 <div class="diag">同步状态：{{DETAIL}}<br>凭据自检：{{AUTH}}<br><a href="/api/sync">点此立即重试同步</a></div>
 </div></body></html>"""
 
@@ -157,7 +158,62 @@ def no_data_html():
         detail = '正在同步…（启动后约 3~10 秒）' if syncing else '尚未开始同步（等 10 秒会自动重试）'
     return (NO_DATA_HTML_TMPL
             .replace('{{DETAIL}}', _esc(detail))
-            .replace('{{AUTH}}', _esc(_auth_status_safe())))
+            .replace('{{AUTH}}', _esc(_auth_status_safe()))
+            .replace('{{LOGIN_BTN}}', LOGIN_BTN_HTML))
+
+
+LOGIN_BTN_HTML = """<div style="margin-top:18px">
+<button id="loginBtn" onclick="doLogin()" style="font-family:inherit;background:#ffb300;color:#111;
+border:0;border-radius:6px;padding:9px 16px;font-size:14px;font-weight:bold;cursor:pointer">🔑 首次使用：登录 WorkBuddy 账号</button>
+<div id="loginTip" style="display:none;margin-top:10px;font-size:12px;color:#ffd23d;text-align:left">
+已弹出登录窗口：请在窗口中完成登录（密码/扫码均可），成功后本页约 10~30 秒内自动显示数据。<br>
+只需登录一次；之后每次打开挂件都会自动续期，无需再管。</div>
+</div>
+<script>
+function doLogin(){
+  var b=document.getElementById('loginBtn'),t=document.getElementById('loginTip');
+  if(b){b.disabled=true;b.textContent='已请求登录窗口…';}
+  if(t){t.style.display='block';}
+  try{ fetch('/api/login').catch(function(){}); }catch(e){}
+}
+</script>"""
+
+# 「一键登录」后台任务守卫（防重复点击开多个线程）
+_LOGIN_JOB = {'running': False}
+
+
+def _login_job():
+    """占位页「一键登录」：弹出专用 Edge 登录窗口 → 轮询等登录完成 → 自动续期+写入+刷新。
+
+    登录动作本身无法免除（账号凭据必须本人提供一次），但 F12/复制/命令行全部免除。
+    登录会话滑动续期 7 天，之后每次打开挂件自动续期。
+    """
+    try:
+        import cookie_auto_renew as car
+        if not car.port_alive():
+            car.launch_edge(headless=False, detach=True)
+            car.wait_port()
+        print('[login] 登录窗口已就绪，等待用户完成登录...')
+        deadline = time.time() + 420
+        while time.time() < deadline:
+            time.sleep(20)
+            if not car.port_alive():
+                print('[login] 登录窗口被关闭；如需继续请再次点击登录按钮')
+                return
+            try:
+                rc = car.renew(headless=False)
+            except Exception as e:
+                print('[login] renew poll error: %r' % e)
+                rc = -1
+            if rc == 0:
+                STORE.refresh()
+                print('[login] 登录完成，cookie 已写入并刷新数据')
+                return
+        print('[login] 等待超时（7 分钟）；如未完成请再次点击登录按钮')
+    except Exception as e:
+        print('[login] job failed: %r' % e)
+    finally:
+        _LOGIN_JOB['running'] = False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -199,6 +255,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == '/api/sync':
             threading.Thread(target=STORE.sync_now, daemon=True).start()
+            self._send(200, 'application/json; charset=utf-8', b'{"started": true}')
+            return
+        if path == '/api/login':
+            if _LOGIN_JOB['running']:
+                self._send(200, 'application/json; charset=utf-8',
+                           b'{"started": true, "note": "already running"}')
+                return
+            _LOGIN_JOB['running'] = True
+            threading.Thread(target=_login_job, daemon=True, name='wb-login').start()
             self._send(200, 'application/json; charset=utf-8', b'{"started": true}')
             return
         if path in ('/', '/widget'):
