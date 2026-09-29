@@ -1,2 +1,3 @@
 # 仅源码模式需要（exe 免安装，不需要任何依赖）
-pywebview>=5.0
+# 打包实测于 pywebview 6.2.1（6.x 的 js_api 与拖拽链路已验证；5.x 未验证）
+pywebview>=6.0

@@ -6,8 +6,9 @@
 > 今日会话 Token 消耗榜；内置浏览器可打开的完整看板（账单详单 / 热力日历 / 会话消耗 / 来源拆分）。
 
 非官方个人小工具，与 WorkBuddy 官方无关。
-**只读取你本机 WorkBuddy 客户端的登录态**（只读、不落盘、不外传），调用官方计费接口获取
-「你自己账号」的用量数据；所有数据仅保存在本机，不使用任何浏览器自动化。
+积分数据通过「网页登录会话」调用官方计费接口获取**你自己账号**的用量；
+本工具使用一个**独立的 Edge 配置档**（仅用于登录你自己的账号与自动续期），
+不读取、不影响你日常浏览器的任何数据；所有数据仅保存在本机，不上传不外传。
 
 ## 功能
 
@@ -16,6 +17,7 @@
 - 今日 / 本月消耗 —— 点击卡片切换 **积分 ⇄ Token** 双口径
 - **今日会话消耗 TOP 榜** —— 按 Token 排行，柱状图直观对比
 - 字号调节（A− / A+ 四档）· 三主题（WorkBuddy / EVA-01 / EVA-02）· 拖拽移动与缩放
+- **登录会话自动续期** —— 每次打开挂件自动续 7 天，日常使用永不掉线
 
 **完整看板**（点击「↗ 完整版」，或浏览器打开 `http://127.0.0.1:8790/full`）
 - 顶部统计卡片 —— 积分口径看余额与消耗；点击卡片切成 **Token 口径**，并把 Token 拆成
@@ -31,10 +33,14 @@
 
 1. 从 [**Releases**](https://github.com/CerberusPhil/wb-usage-widget/releases/latest) 下载最新版 zip
    （`WBCreditWidget_vX.Y.zip`），解压后双击里面的 `WBCreditWidget.exe`
-2. 前提：本机已安装 WorkBuddy 客户端并保持登录
-3. 首次启动等待 10~60 秒完成首次同步（窗口自动刷新）
+2. 首次使用：点窗口里的 **「🔑 登录 WorkBuddy 账号」**，在弹出的浏览器窗口完成登录
+   （密码/扫码均可）——约 10~30 秒后自动出数据，**只需登录一次**
+3. 之后每次打开挂件自动续期（登录会话 7 天滑动），无需再管
 
-> 更多细节（操作、隐私说明、FAQ）见 [`packaging/使用说明.txt`](packaging/使用说明.txt)。
+> - **不需要运行 WorkBuddy 客户端**——积分/账单走网页登录会话，客户端开不开都行；
+> - 「今日会话消耗 TOP 榜」需要本机装有 WorkBuddy 客户端并使用过（读本机会话记录）；
+> - 换电脑：在新电脑重复一次步骤 2 即可（登录态按机器独立，不可拷贝）；
+> - 更多细节（操作、隐私说明、FAQ）见 [`packaging/使用说明.txt`](packaging/使用说明.txt)。
 
 ## 从源码运行（可选）
 
@@ -63,18 +69,20 @@ scripts\stop_billing_widget.bat
 | 数据 | 来源 | 位置 |
 |------|------|------|
 | 积分账单（余额 / 逐笔） | 官方计费接口（31 天滚动窗口，本机自动累积） | `%USERPROFILE%\.workbuddy\server_usage_cache.json` |
+| 登录会话（cookie） | 专用 Edge 配置档（首次一键登录，自动滑动续期） | `%USERPROFILE%\.workbuddy\server_usage.json` + `%LOCALAPPDATA%\WBCreditWidget\edge_cookie_profile` |
 | Token / 会话明细 | 本机 WorkBuddy 会话记录（只读） | 不复制、不外传 |
-| 登录凭据 | 本机 WorkBuddy 客户端登录态 | 仅内存只读使用，**不落盘** |
 
 ## 目录结构
 
 ```
 .
 ├── scripts/                  # 源码（本地服务 + 挂件壳 + 数据聚合）
-│   ├── wb_widget_app.py      # 一键入口（exe 打包入口：互斥锁 + 内嵌服务 + 窗口）
-│   ├── billing_server.py     # 本地服务（默认 http://127.0.0.1:8790）
+│   ├── wb_widget_app.py      # 一键入口（exe 打包入口：互斥锁 + 内嵌服务 + 窗口 + 续期线程）
+│   ├── billing_server.py     # 本地服务（默认 http://127.0.0.1:8790；含 /api/login 一键登录）
 │   ├── billing_widget.py     # 挂件窗口壳（pywebview；缺则 Edge --app 降级）
-│   ├── server_usage_sync.py  # 账单同步（桌面登录态优先 / cookie 兜底）
+│   ├── server_usage_sync.py  # 账单同步（网页会话 cookie；UA 与签发会话绑定）
+│   ├── cookie_auto_renew.py  # 登录会话自动续期（专用 Edge 配置档 + CDP，纯标准库）
+│   ├── save_cookie.py        # 手动 cookie 兜底（剪贴板 → 校验 → 保存）
 │   ├── billing_dashboard_data.py
 │   ├── token_sessions.py     # 本机会话 Token 聚合与对账
 │   ├── billing_widget_template.html / billing_template.html
@@ -97,22 +105,28 @@ build.bat
 :: 产物：packaging\dist\WBCreditWidget.exe
 ```
 
-## 已知问题
+## 登录与会话机制（v1.8 起）
 
-### 桌面登录态被加密 → 自动改用浏览器 cookie（需偶尔更新）
-
-较新版本的 WorkBuddy 客户端把本机登录态里的 `accessToken` 从**明文 JWT** 改成了
+新版 WorkBuddy 客户端把本机登录态里的 `accessToken` 从**明文 JWT** 改成了
 **加密信封**（`{"$wbEncrypted": 1, "envelope": "..."}`；密钥由客户端运行时持有，
-本地无法解密）。因此**不再可能**从登录态直接取到明文令牌。
+本地无法解密），因此不可能再从客户端登录态直接取令牌。
 
-本工具的应对方式：**自动回退到浏览器 cookie 通道**调用官方计费接口。
+本工具的应对：**积分数据改走「网页登录会话」通道**，且全自动——
 
 ```
-resolve_auth()   桌面登录态(Bearer) → 失效/加密 → 浏览器 cookie 兜底
+首次使用   占位页点「🔑 登录」→ 弹出专用 Edge 窗口 → 正常登录一次
+日常使用   每次打开挂件，后台自动访问一次成长计划页（会话滑动续期 7 天）
+           → CDP 读取该配置档的登录 cookie（可读 HttpOnly）→ 校验 → 保存 → 同步
 ```
 
-- 凭据文件：`~/.workbuddy/server_usage.json`（只存本机，不外传）
-- cookie 会过期（一般数天到数周）。过期后日志提示「cookie 可能已过期」，按下面三步更新：
+- **专用配置档**：`%LOCALAPPDATA%\WBCreditWidget\edge_cookie_profile`，与你的日常
+  浏览器完全隔离；CDP 调试口只绑定该配置档，不触碰日常浏览器；
+- **UA 一致性**：登录会话与签发时的 User-Agent 绑定（服务端风控），续期时 headless
+  模式会强制回放登录时的 UA；
+- **登录会话 7 天滑动**：只要 7 天内打开过一次挂件就永不过期；连续 7 天未打开才会
+  过期，重新点一次「🔑 登录」即恢复；
+- **登录态不可跨机器拷贝**（浏览器安全设计），每台电脑各自登录一次；
+- **手动兜底**（一般用不到）：
 
 ```bat
 :: 1) 浏览器登录 https://www.codebuddy.cn/profile/plans-usage
