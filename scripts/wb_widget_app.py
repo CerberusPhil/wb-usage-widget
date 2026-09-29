@@ -122,6 +122,25 @@ def wait_server(port, timeout=25.0):
     return False
 
 
+def _cookie_renew_worker():
+    """打开挂件时顺带续期同步 cookie（方案 B：专用 Edge 配置档 headless，2026-09-28）。
+
+    - 每次打开 exe 静默跑一次（代替每日自动化，Philip 09-29 拍板）
+    - 滑动续期：cookie 每次访问页面 +7 天，日常开关挂件即永不断流
+    - 失败不影响挂件本体（daemon 线程 + 全捕获）；脚本随 exe 分发（spec datas）
+    """
+    time.sleep(6)                       # 先让窗口起来，续期在后台慢慢跑
+    try:
+        base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        if base not in sys.path:
+            sys.path.insert(0, base)
+        import cookie_auto_renew as car
+        rc = car.renew(headless=True)
+        log('cookie auto renew: rc=%s' % rc)
+    except Exception as e:
+        log('cookie auto renew skipped: %r' % e)
+
+
 def main():
     argv = sys.argv[1:]
     port = 8790
@@ -149,6 +168,7 @@ def main():
 
     url = 'http://127.0.0.1:%d/' % port
     log('opening widget window -> %s' % url)
+    threading.Thread(target=_cookie_renew_worker, daemon=True, name='wb-cookie-renew').start()
     code = bw.run_pywebview(url, 420, 450, None, None, False)
     log('widget window closed (exit=%s)' % code)
     return code

@@ -227,6 +227,19 @@ def load_cookie():
         return ''
 
 
+def load_ua():
+    """cookie 签发时的 User-Agent（cookie_auto_renew.py 写入）。
+
+    ⚠️ 实测（2026-09-29）：风控把滚动续期的新会话绑死到签发 UA，后续请求必须带
+    同一个 UA，否则 401——所以 cookie 模式的请求头 UA 必须跟 creds 里的 ua 走。
+    """
+    try:
+        with open(CRED_FILE, encoding='utf-8') as f:
+            return json.load(f).get('ua') or UA
+    except Exception:
+        return UA
+
+
 def resolve_auth():
     """凭据选择：桌面登录态（Bearer）优先 → 浏览器 cookie 兜底。"""
     b = load_bearer()
@@ -234,7 +247,7 @@ def resolve_auth():
         return {'mode': 'bearer', **b}
     c = load_cookie()
     if c:
-        return {'mode': 'cookie', 'cookie': c}
+        return {'mode': 'cookie', 'cookie': c, 'ua': load_ua()}
     return None
 
 
@@ -317,7 +330,7 @@ def api(path, body, auth):
                 last = e
         raise last
     url = BASE + path
-    headers = {**COOKIE_HEADERS, 'cookie': auth['cookie']}
+    headers = {**COOKIE_HEADERS, 'cookie': auth['cookie'], 'user-agent': auth.get('ua') or UA}
     req = urllib.request.Request(url, data=json.dumps(body).encode(),
                                  headers=headers, method='POST')
     with _opener().open(req, timeout=40) as r:
@@ -403,7 +416,7 @@ def run_sync(quiet=False):
             ck = load_cookie()
             if ck:
                 say('[sync] 桌面登录态被拒（HTTP %s）→ 改用浏览器 cookie 兜底重试' % e.code)
-                auth = {'mode': 'cookie', 'cookie': ck}
+                auth = {'mode': 'cookie', 'cookie': ck, 'ua': load_ua()}
                 try:
                     rows, total = fetch_usage(auth, start, end)
                 except urllib.error.HTTPError as e2:

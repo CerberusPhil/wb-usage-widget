@@ -5,7 +5,7 @@ a = Analysis(
     ['../scripts/wb_widget_app.py'],
     pathex=[],
     binaries=[],
-    datas=[('../scripts/billing_widget_template.html', '.'), ('../scripts/billing_template.html', '.'), ('../scripts/widget_icon.ico', '.')],
+    datas=[('../scripts/billing_widget_template.html', '.'), ('../scripts/billing_template.html', '.'), ('../scripts/widget_icon.ico', '.'), ('../scripts/cookie_auto_renew.py', '.'), ('../scripts/_tools/save_cookie.py', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
