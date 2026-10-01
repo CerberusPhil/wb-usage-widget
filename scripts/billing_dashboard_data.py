@@ -16,7 +16,7 @@ WorkBuddy 积分看板 · 账单真值版数据脚本（Phase B/C）
         并以 ±10 分钟时间对齐估算其中「疑似另一台设备」的部分（unmatched_silent）
   - 会话：本机 jsonl 会话聚合（含按模型拆分）→ 消耗详单「按会话」视图
   - token_days：本机 jsonl 按天 Token 聚合 → 卡片 / 日历的 Token 维度
-  - session_days：按天 × 会话聚合 → 「会话消耗 · 按天」视图
+  - session_days：按天 × 会话聚合（含按模型明细）→ 「会话消耗」窗口视图（近7天/近30天）
   - 余额 / 模型 / 统计：同前
 
 用法：

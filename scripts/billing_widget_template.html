@@ -519,7 +519,7 @@ function render(d, animate){
   else { dot.className = 'dot'; txt.textContent = '同步于 ' + (meta.synced_at || d.generated_at || '—'); }
 }
 
-/* 今日会话消耗（横条：按 Token 降序，行数随高度自适应；与完整看板「会话消耗 · 按天」同口径） */
+/* 今日会话消耗（横条：按 Token 降序，行数随高度自适应；与完整看板「会话消耗」窗口视图同口径） */
 function renderTodaySessions(d, animate){
   const genDay = (d.generated_at || '').slice(0,10);
   const dd = ((d.session_days || {})[genDay]) || {};

@@ -15,7 +15,8 @@ WorkBuddy 本机 Token 会话聚合（消耗详单「按会话」视图数据源
   - stats    : 会话数 / 跨模型会话数 / 总 token / 缓存命中率 / 按模型 Token 聚合（by_model）
   - crids    : 全部 conversationRequestId 集合（账单对账：本机 vs 其他端）
   - token_days: 按天 Token 聚合（本机 jsonl 视角；供卡片 / 日历的 Token 维度）
-  - session_days: 按天 × 会话聚合（含按模型明细，供「会话消耗 · 按天」视图）
+  - session_days: 按天 × 会话聚合（含按模型明细，供「会话消耗」窗口视图 /
+      近7天·近30天跨天合并，及窗口 Token 按模型聚合）
   - Token 三类归属（按请求级判定，贯穿会话/模型/按天）：
       · tc = 积分 Token（rawUsage.credit > 0）
       · tf = 免费 Token（credit 存在且 = 0，如 Hy3 / Hy4-preview）
@@ -377,6 +378,7 @@ def build_token_data():
             hr_ = mm_['hit'] / max(1, mm_['hit'] + mm_['miss']) * 100
             res.append({'name': canon.get(key_) or '未知', 'n': mm_['n'],
                         'inp': mm_['inp'], 'out': mm_['out'], 'think': mm_['think'],
+                        'hit': mm_['hit'], 'miss': mm_['miss'],
                         'hit_rate': round(hr_, 1), 'tokens': mm_['inp'] + mm_['out'],
                         'credit': round(mm_['credit'], 2),
                         'tc': mm_['tc'], 'tf': mm_['tf'], 'te': mm_['te']})
