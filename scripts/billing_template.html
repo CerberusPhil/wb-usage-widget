@@ -338,6 +338,13 @@
   .sdetail th { font-size:calc(10px * var(--fs,1)); padding:3px 6px; }
   .sdetail td { padding:3px 6px; }
   .sdetail .model-tag { font-size:calc(10.5px * var(--fs,1)); }
+  .bd-pkgs { margin:6px 0 2px 0; }
+  .pkgtbl th, .pkgtbl td { padding:3px 8px; border-bottom:1px solid var(--row-bd); text-align:left; }
+  .pkgtbl th { color:var(--mid); font-weight:600; }
+  .pkgtbl .r { text-align:right; }
+  .pkgtbl .pk-on td { font-weight:600; color:var(--fg); }
+  .pkgtbl .pkgcode { font-family:Consolas,monospace; font-size:calc(11px * var(--fs,1)); }
+  .pkgtbl .pkfrz { color:var(--warn,#c08000); font-size:11px; margin-left:4px; }
 
   /* 子代理标记 / Token 占比条 / 分页 / Token 口径注 */
   .subtag { display:inline-block; font-size:calc(10px * var(--fs,1)); padding:0 6px; border:1px dashed var(--dim); border-radius:1px; color:var(--mid); letter-spacing:1px; font-weight:600; }
@@ -375,6 +382,7 @@
 <div class="hazard"></div>
 
 <section class="cards" id="cards"></section>
+<div id="balanceDetail"></div>
 
 <h2>模型消耗 <span class="hint">窗口 · ANALYSIS</span>
   <span class="seg" id="modelSeg">
@@ -579,7 +587,7 @@ function renderCards(){
         <div class="label">积分余额 · 点击查看成长计划</div>
         <div class="value num"><span id="vBal">0.00</span><span class="unit">积分</span></div>
         <div class="progress"><i style="width:${pct.toFixed(1)}%"></i></div>
-        <div class="note">当前周期已用 ${b.used.toFixed(2)} / ${b.total.toFixed(2)}</div>
+        <div class="note">账户合计 · ${b.pkg_n} 个资源包 · 已用 ${b.used.toFixed(2)} / 总量 ${b.total.toFixed(2)}</div>
       </a>`;
   } else {
     balCard = `
@@ -612,6 +620,27 @@ function renderCards(){
     document.querySelectorAll('#cards .cbar > i').forEach(el=>{ el.style.width = (el.dataset.w || 0) + '%'; });
   }));
   $('#refreshedAt').textContent = 'DATA ' + DATA.generated_at;
+  // 资源包明细（余额 = 全部包剩余之和，避免漏算月度/赠送包）
+  const _bd = document.getElementById('balanceDetail');
+  if(_bd && b) _bd.innerHTML = balancePkgsHtml(b);
+}
+
+/* ---------- 资源包明细（余额口径说明 + 逐包核对） ---------- */
+function balancePkgsHtml(b){
+  if(!b || !b.pkgs || !b.pkgs.length) return '';
+  const rows = b.pkgs.map(p=>{
+    const active = p.remain > 0 ? ' class="pk-on"' : '';
+    const frz = p.frozen > 0 ? ` <span class="pkfrz" title="冻结额度（不可用）">冻${p.frozen.toFixed(2)}</span>` : '';
+    return `<tr${active}>
+      <td><span class="pkgcode" title="${esc(p.full_code)}">${esc(p.code)}</span>${frz}</td>
+      <td class="r num">${p.remain.toFixed(2)}</td>
+      <td class="r num">${p.used.toFixed(2)}</td>
+      <td class="r num">${p.total.toFixed(2)}</td></tr>`;
+  }).join('');
+  return `<details class="moreinfo mi-inline bd-pkgs"><summary>&#9432; 资源包明细（${b.pkg_n} 个 · 合计剩余 ${b.remain.toFixed(2)}）</summary>
+    <div class="mi-body"><table class="pkgtbl">
+      <tr><th>资源包</th><th class="r">剩余</th><th class="r">已用</th><th class="r">总量</th></tr>${rows}</table>
+      <div class="note" style="color:var(--faint);margin-top:6px">余额为全部资源包「剩余」之和（与官网成长计划页同口径）；粗体行 = 仍有余额的包。每月1号到账的包也会并入此处。</div></div></details>`;
 }
 
 /* ---------- 热力日历（30 天窗口 · 月份分组 · 左右翻页） ---------- */

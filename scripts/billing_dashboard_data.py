@@ -162,17 +162,36 @@ def build_data():
     for dk in details:
         details[dk].sort(key=lambda x: x['t'])
 
-    # 余额：取容量最大的包为主包
+    # 余额：账户全部有效资源包**合计**（不再只取最大包，否则漏算月度/赠送包）
+    # —— 2026-10-02 修复：原逻辑 max(pkg, key=总量) 只认主包，导致 code_008 等
+    #    月度/赠送包剩余被漏算，看板余额比官网实际可用少一截。
     balance = None
     summary = cache.get('summary') or {}
     pkgs = summary.get('Packages') or []
     if pkgs:
-        main_pkg = max(pkgs, key=lambda p: float(p.get('CycleTotalCapacity') or 0))
+        rem = sum(float(p.get('CycleRemainCapacity') or 0) for p in pkgs)
+        tot = sum(float(p.get('CycleTotalCapacity') or 0) for p in pkgs)
+        used = sum(float(p.get('CycleUsedCapacity') or 0) for p in pkgs)
+        frozen = sum(float(p.get('CycleFrozenCapacity') or 0) for p in pkgs)
+        def _short(code):
+            parts = (code or '').split('_')
+            return '_'.join(parts[1:3]) if len(parts) >= 3 else (code or '—')
+        pkg_rows = sorted(
+            [{'code': _short(p.get('PackageCode')),
+              'full_code': p.get('PackageCode') or '',
+              'total': round(float(p.get('CycleTotalCapacity') or 0), 2),
+              'used': round(float(p.get('CycleUsedCapacity') or 0), 2),
+              'remain': round(float(p.get('CycleRemainCapacity') or 0), 2),
+              'frozen': round(float(p.get('CycleFrozenCapacity') or 0), 2)}
+             for p in pkgs],
+            key=lambda x: -x['remain'])
         balance = {
-            'total': round(float(main_pkg.get('CycleTotalCapacity') or 0), 2),
-            'used': round(float(main_pkg.get('CycleUsedCapacity') or 0), 2),
-            'remain': round(float(main_pkg.get('CycleRemainCapacity') or 0), 2),
+            'total': round(tot, 2),
+            'used': round(used, 2),
+            'remain': round(rem, 2),
+            'frozen': round(frozen, 2),
             'pkg_n': len(pkgs),
+            'pkgs': pkg_rows,
         }
 
     total_credit = round(sum(float(x.get('credit') or 0) for x in records), 2)
@@ -244,7 +263,7 @@ def main():
     print(f"客户端分布: {s['client_dist']}")
     b = data['balance']
     if b:
-        print(f"余额: 剩余 {b['remain']} / 总量 {b['total']} (已用 {b['used']}, 主包, 共{b['pkg_n']}包)")
+        print(f"余额: 剩余 {b['remain']} / 总量 {b['total']} (已用 {b['used']}, 账户合计, 共{b['pkg_n']}包)")
     sp = data.get('source_split')
     if sp:
         print(f"来源拆分: 本机 {sp['local']['credit']} 积分 / 其他端 {sp['other_credit']} 积分"
