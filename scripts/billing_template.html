@@ -1002,7 +1002,8 @@ function renderSource(){
   }
   const L = sp.local || {n:0,credit:0}, W = sp.web || {n:0,credit:0},
         C = sp.cloud || {n:0,credit:0}, U = sp.unmatched || {n:0,credit:0},
-        S = sp.unmatched_silent || {n:0,credit:0};
+        S = sp.unmatched_silent || {n:0,credit:0},
+        LM = sp.local_matched || {n:0,credit:0}, LA = sp.local_aux || {n:0,credit:0};
   const other = sp.other_credit || 0, otherN = sp.other_n || 0;
   const tot = (L.credit + other) || 1;
   const lp = L.credit/tot*100, op = other/tot*100;
@@ -1011,11 +1012,13 @@ function renderSource(){
       <i style="width:${lp.toFixed(2)}%;background:var(--accent)"></i><i style="width:${op.toFixed(2)}%;background:var(--dim)"></i>
     </div>
     <div class="slegend">
-      <span><i class="k" style="background:var(--accent)"></i>本机（可对账还原）<b class="num"> ${L.credit.toFixed(1)}</b> 积分 · ${lp.toFixed(1)}% · ${L.n} 条</span>
+      <span><i class="k" style="background:var(--accent)"></i>本机 <b class="num"> ${L.credit.toFixed(1)}</b> 积分 · ${lp.toFixed(1)}% · ${L.n} 条</span>
       <span><i class="k" style="background:var(--dim)"></i>其他端 <b class="num">${other.toFixed(1)}</b> 积分 · ${op.toFixed(1)}% · ${otherN} 条</span>
     </div>
     <details class="moreinfo"><summary>ⓘ 口径与构成说明</summary>
-      <div class="mi-body">其他端构成：网页版 <b class="num">${W.credit.toFixed(1)}</b>（${W.n} 条）· APP <b class="num">${C.credit.toFixed(1)}</b>（${C.n} 条）· 客户端未匹配 <b class="num">${U.credit.toFixed(1)}</b>（${U.n} 条：含另一台设备与不可对账的辅助调用，其中约 <b class="num">${S.credit.toFixed(1)}</b> 疑似另一台设备，按 ±10 分钟时间对齐估算）。<br>
+      <div class="mi-body"><b>本机构成</b>：逐笔对账命中 <b class="num">${LM.credit.toFixed(1)}</b>（${LM.n} 条）· 本机辅助调用 <b class="num">${LA.credit.toFixed(1)}</b>（${LA.n} 条）。<br>
+      辅助调用 = 平台自动触发的「生成会话标题 / 上下文摘要 / 网页抓取 / 上下文压缩」等，<b>不落 conversationRequestId、永远无法逐笔对账</b>；若其发生时刻 ±10 分钟内本机确有活动，即判定为本机会话的附属请求、计入本机（2026-10-02 起，此前这类被误标为「非本机」）。<br>
+      <b>其他端构成</b>：网页版 <b class="num">${W.credit.toFixed(1)}</b>（${W.n} 条）· APP <b class="num">${C.credit.toFixed(1)}</b>（${C.n} 条）· 客户端未匹配 <b class="num">${U.credit.toFixed(1)}</b>（${U.n} 条：客户端请求但该时刻本机无活动 ⇒ 真·另一台设备）。<br>
       对账口径：本机 jsonl 的 conversationRequestId ↔ 账单 requestId（命中即该笔消耗可由本机会话还原）；<b>Token 明细仅本机可获得（服务端不含），本拆分只覆盖积分维度</b>。</div>
     </details>`;
 }

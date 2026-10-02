@@ -89,7 +89,10 @@ def build_data():
     model_agg = defaultdict(lambda: {'credit': 0.0, 'n': 0, 'free_n': 0})
     split = {'local': {'n': 0, 'credit': 0.0}, 'web': {'n': 0, 'credit': 0.0},
              'cloud': {'n': 0, 'credit': 0.0}, 'unmatched': {'n': 0, 'credit': 0.0},
-             'unmatched_silent': {'n': 0, 'credit': 0.0}}
+             'unmatched_silent': {'n': 0, 'credit': 0.0},
+             # 本机内部再分两类（保持对账透明度）：逐笔对账命中 / 本机辅助调用
+             'local_matched': {'n': 0, 'credit': 0.0},
+             'local_aux': {'n': 0, 'credit': 0.0}}
 
     for r in records:
         t = r.get('requestTime') or ''
@@ -100,7 +103,12 @@ def build_data():
         model = r.get('model') or '未知'
         client = r.get('client') or ''
         matched = label_mode and (r.get('requestId') in crids)
-        if matched:
+        # 平台辅助调用（conversation_topic / context_summary_* / webfetch / compact 等）
+        # 本就不落 conversationRequestId ⇒ 永远无法按 crid 对账。若该时刻 ±10min 内
+        # 本机确有活动，则它仍属本机会话的附属请求 —— 归入本机，不再误标「非本机」。
+        # （2026-10-02 修复：原逻辑只按 crid 命中判定，导致本机辅助调用被标成其他设备）
+        localish = (not matched) and client == 'WorkBuddy' and _near(act_min, t)
+        if matched or localish:
             bucket = 'local'
         elif client == 'web_agents':
             bucket = 'web'
@@ -113,10 +121,16 @@ def build_data():
                 split['unmatched_silent']['credit'] += credit
         split[bucket]['n'] += 1
         split[bucket]['credit'] += credit
+        if matched:
+            split['local_matched']['n'] += 1
+            split['local_matched']['credit'] += credit
+        elif localish:
+            split['local_aux']['n'] += 1
+            split['local_aux']['credit'] += credit
 
         if label_mode:
             if client == 'WorkBuddy':
-                label = '本机' if matched else '非本机'
+                label = '本机' if (matched or localish) else '非本机'
             else:
                 label = CLIENT_LABEL.get(client, client or '—')
         else:
@@ -128,7 +142,7 @@ def build_data():
         if credit == 0:
             d['free_n'] += 1
         if label_mode:
-            if matched:
+            if matched or localish:
                 d['local_credit'] += credit
             else:
                 d['other_credit'] += credit
@@ -213,6 +227,10 @@ def build_data():
                                  'credit': round(split['unmatched_silent']['credit'], 2)},
             'other_credit': round(other_credit, 2),
             'other_n': split['web']['n'] + split['cloud']['n'] + split['unmatched']['n'],
+            'local_matched': {'n': split['local_matched']['n'],
+                              'credit': round(split['local_matched']['credit'], 2)},
+            'local_aux': {'n': split['local_aux']['n'],
+                          'credit': round(split['local_aux']['credit'], 2)},
         }
 
     return {
