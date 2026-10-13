@@ -123,17 +123,27 @@ def wait_server(port, timeout=25.0):
 
 
 def _cookie_renew_worker():
-    """打开挂件时顺带续期同步 cookie（方案 B：专用 Edge 配置档 headless，2026-09-28）。
+    """打开挂件时的凭据保活（2026-09-28 引入，2026-10-13 改为条件触发）。
 
-    - 每次打开 exe 静默跑一次（代替每日自动化，Philip 09-29 拍板）
-    - 滑动续期：cookie 每次访问页面 +7 天，日常开关挂件即永不断流
+    - 长效令牌（RT）是主通道：**每次开 exe 顺手刷新一次** —— 既验证可用性，
+      又把 refresh_token 的 30 天滑动窗口续上（间隔 < 30 天开一次即永久有效）。
+    - 仅当 RT 未配置或刷新失败时，才拉起专用 Edge 续期 cookie（最后兜底通道）。
     - 失败不影响挂件本体（daemon 线程 + 全捕获）；脚本随 exe 分发（spec datas）
     """
-    time.sleep(6)                       # 先让窗口起来，续期在后台慢慢跑
+    time.sleep(6)                       # 先让窗口起来，保活在后台慢慢跑
     try:
         base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         if base not in sys.path:
             sys.path.insert(0, base)
+        import server_usage_sync as sus
+        if sus.rt_info().get('configured'):
+            r = sus.load_bearer_via_rt()          # 刷新 + 回写轮换出的新 refresh_token
+            if r:
+                days = round((r.get('expires_in') or 0) / 86400.0, 1)
+                log('rt self-renew ok（accessToken 约 %s 天，refresh_token 30 天滑动）'
+                    '；cookie 仅作最后兜底，跳过 Edge 续期' % days)
+                return
+            log('rt self-renew failed: %s → 回退去续期 cookie' % sus._RT_NOTE)
         import cookie_auto_renew as car
         rc = car.renew(headless=True)
         log('cookie auto renew: rc=%s' % rc)

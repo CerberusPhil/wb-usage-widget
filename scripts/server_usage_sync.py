@@ -5,13 +5,27 @@ WorkBuddy 服务端账单同步（Phase B 数据管道 · 真值来源）
 接口：https://<domain>/billing/meter/*
   - get-user-request-usage   : 逐笔账单（requestId / credit / model / client / requestTime / input 前段）
   - get-user-resource-summary: 账户周期容量汇总（总量/已用/剩余）
-凭据（双模式，自动选择）：
+凭据（三模式，自动选择）：
   1) 本机桌面登录态（推荐 · 零配置）—— WorkBuddy 客户端登录后即存在，Bearer 直调；
      路径见 _auth_candidates()（跨平台）；token 只读、不落盘、不外传。
      2026-09-21 实测：四个接口全通（Bearer-only 即可，无需 platform 头；两域名均可）
-  2) 浏览器 cookie（兜底）—— ~/.workbuddy/server_usage.json（F12 抓包获得；过期后重抓覆盖）
+     ⚠️ 5.6.2+ 客户端把 accessToken 改为加密信封 → 本项自动失效，转下一条
+  2) 长效令牌自续期（refresh_token · 2026-10-13 引入）—— 一次性拿到长效
+     refresh_token 后，每次运行用它向官方刷新端点换新 accessToken（28 天），
+     并回写轮换出的新 refresh_token（30 天滑动）⇒ 间隔 < 30 天跑过一次即永久有效，
+     **不再需要浏览器 cookie / Edge+CDP 自动化**。
+     令牌文件：~/.workbuddy/server_usage_rt.json（本看板自己的，优先）
+               ~/.workbuddy/checkin-rt.json（签到技能共用的，回退识别）
+  3) 浏览器 cookie（最后兜底）—— ~/.workbuddy/server_usage.json（F12 抓包获得）
 缓存：~/.workbuddy/server_usage_cache.json（records 按 requestId 去重合并，增量累积）
       —— 可用环境变量 WB_SERVER_USAGE_CACHE 覆盖路径（如放同步目录供双机共享）
+
+长效令牌管理（CLI，均不打印令牌明文）：
+  python server_usage_sync.py --rt-info            # 查状态（脱敏）
+  python server_usage_sync.py --setup-rt "<令牌>"   # 手动录入
+  python server_usage_sync.py --setup-rt-file <文件>
+  python server_usage_sync.py --export-rt          # 导出指引（复用签到技能）
+  python server_usage_sync.py --forget-rt          # 清除本看板自己的令牌
 
 接口边界（2026-09-21 实测钉死）：
   - **31 天滚动窗口**：可查范围 = 最近 31 天（2026-09-21 时最早可查恰为 8/21，早于此整体返回空）
@@ -98,6 +112,7 @@ def _auth_candidates():
 
 _AUTH_SCAN = {'at': 0.0, 'files': None}
 _BEARER_NOTE = ''          # 桌面登录态不可用时的原因（供界面/日志显示）
+_RT_NOTE = ''              # 长效令牌通道不可用时的原因（供界面/日志显示）
 
 
 def _discover_auth_files(max_depth=5, limit=10, ttl=600):
@@ -240,11 +255,173 @@ def load_ua():
         return UA
 
 
+# ============================================================================
+# 长效令牌通道（refresh_token 自续期）· 2026-10-13 引入
+# ----------------------------------------------------------------------------
+# 背景：WB 客户端 5.6.2+ 把登录态 accessToken 改成 AES-256-GCM 加密信封，
+# 本地取不到明文 → 只能靠浏览器 cookie 兜底（5~7 天失效、需 Edge+CDP 重抓）。
+# 现改用**官方刷新端点**：一次性拿到长效 refresh_token 后，每次运行用它换新
+# accessToken（28 天），并把轮换出的新 refresh_token 回写（30 天滑动续期）
+#   ⇒ 只要间隔 < 30 天跑过一次，凭据永久有效，不再需要任何浏览器自动化。
+# 端点/请求头来自签到技能（totorosir-workbuddy-score · 通道C，已实测可行）；
+# 2026-10-13 本机实测：账单 get-user-request-usage 返回 686 条 / code 0 / 双域名通。
+# ============================================================================
+RT_REFRESH_API = 'https://copilot.tencent.com/v2/plugin/auth/token/refresh'
+RT_HEADERS = {
+    'Content-Type': 'application/json',
+    'X-Auth-Refresh-Source': 'plugin',
+    'X-Domain': 'copilot.tencent.com',
+}
+
+
+def _rt_paths():
+    """长效令牌文件候选：本看板自己的（优先）→ 签到技能共用的（回退）。"""
+    return [os.path.join(HOME_WB, 'server_usage_rt.json'),
+            os.path.join(HOME_WB, 'checkin-rt.json')]
+
+
+def _rt_mask(tok):
+    """脱敏显示：前 6 + 后 4。"""
+    if not tok:
+        return ''
+    return (tok[:6] + '...' + tok[-4:]) if len(tok) > 12 else '***'
+
+
+def read_rt():
+    """读长效令牌 → (token, 文件路径)；未配置返回 (None, None)。"""
+    for p in _rt_paths():
+        try:
+            if not os.path.isfile(p):
+                continue
+            obj = json.load(open(p, encoding='utf-8'))
+            if not isinstance(obj, dict):
+                continue
+            tok = (obj.get('rt') or obj.get('refresh_token') or '').strip()
+            if tok:
+                return tok, p
+        except Exception:
+            continue
+    return None, None
+
+
+def _rt_write(tok, path, source='refresh'):
+    """回写轮换出的长效令牌（保留原文件其它字段，避免破坏共用格式）。"""
+    try:
+        obj = json.load(open(path, encoding='utf-8')) if os.path.isfile(path) else {}
+        if not isinstance(obj, dict):
+            obj = {}
+    except Exception:
+        obj = {}
+    obj.update({'v': obj.get('v', 1), 'rt': tok, 'source': source,
+                'saved_at': int(time.time())})
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(obj, f, ensure_ascii=False, indent=2)
+    return path
+
+
+def rt_refresh(tok):
+    """用长效令牌换新接口令牌。返回 dict（ok/token/rt/expires_in/domain/msg）。"""
+    req = urllib.request.Request(RT_REFRESH_API, data=b'{}', method='POST')
+    for k, v in RT_HEADERS.items():
+        req.add_header(k, v)
+    req.add_header('X-Refresh-Token', tok)
+    try:
+        with _opener().open(req, timeout=30) as r:
+            res = json.loads(r.read().decode('utf-8', 'replace'))
+    except urllib.error.HTTPError as e:
+        try:
+            res = json.loads(e.read().decode('utf-8', 'replace'))
+        except Exception:
+            return {'ok': False, 'msg': 'HTTP %s' % e.code}
+    except Exception as e:
+        return {'ok': False, 'msg': str(e)[:200]}
+    if res.get('code') != 0 or not isinstance(res.get('data'), dict):
+        return {'ok': False, 'msg': 'code=%s %s' % (res.get('code'), res.get('msg') or '')}
+    d = res['data']
+    at = d.get('accessToken') or ''
+    if not at:
+        return {'ok': False, 'msg': '应答缺少 accessToken'}
+    return {'ok': True, 'token': at, 'rt': d.get('refreshToken') or '',
+            'expires_in': d.get('expiresIn'),
+            'domain': d.get('domain') or 'www.codebuddy.cn'}
+
+
+def load_bearer_via_rt():
+    """长效令牌通道：刷新换新 accessToken 并回写轮换值。
+
+    返回 {'mode':'bearer','token':..,'domain':..,'expired':False,'file':..,'via':'rt',...}
+    或 None（未配置 / 刷新失败；原因写入 _RT_NOTE 供界面与日志显示）。
+    """
+    global _RT_NOTE
+    tok, path = read_rt()
+    if not tok:
+        _RT_NOTE = '未配置长效令牌'
+        return None
+    r = rt_refresh(tok)
+    if not r.get('ok'):
+        _RT_NOTE = '长效令牌刷新失败：%s' % r.get('msg')
+        return None
+    new_rt = r.get('rt') or ''
+    if new_rt and new_rt != tok:
+        try:
+            _rt_write(new_rt, path, source='refresh')
+        except Exception:
+            pass        # 写失败不影响本次同步（旧令牌通常仍可用）
+    _RT_NOTE = ''
+    return {'mode': 'bearer', 'token': r['token'], 'expired': False,
+            'domain': r.get('domain') or 'www.codebuddy.cn',
+            'file': path, 'via': 'rt', 'expires_in': r.get('expires_in')}
+
+
+def rt_info():
+    """长效令牌状态（脱敏，不含明文）。"""
+    tok, path = read_rt()
+    if not tok:
+        return {'configured': False}
+    out = {'configured': True, 'file': path, 'token_masked': _rt_mask(tok)}
+    try:
+        obj = json.load(open(path, encoding='utf-8'))
+        saved = obj.get('saved_at')
+        if saved:
+            out['saved_days_ago'] = round((time.time() - saved) / 86400.0, 1)
+        out['source'] = obj.get('source')
+    except Exception:
+        pass
+    return out
+
+
+def setup_rt(value):
+    """录入长效令牌（手动粘贴；写本看板自己的文件，不覆盖签到技能共用文件）。"""
+    value = (value or '').strip()
+    if len(value) < 200 or value.count('.') != 2:
+        return False, ('内容不像有效的长效令牌'
+                       '（应为较长的 base64 JWT 三段式，含两个点号）')
+    target = _rt_paths()[0]
+    _rt_write(value, target, source='manual')
+    return True, '长效令牌已保存到 %s（%s）' % (target, _rt_mask(value))
+
+
+def forget_rt():
+    """清除本看板自己的长效令牌（置空覆盖，不删文件、不动签到共用文件）。"""
+    p = _rt_paths()[0]
+    try:
+        if os.path.isfile(p):
+            with open(p, 'w', encoding='utf-8') as f:
+                f.write('{}')
+            return True, '已置空覆盖 %s' % p
+    except Exception as e:
+        return False, str(e)
+    return False, '本看板的长效令牌文件不存在（%s）' % p
+
+
 def resolve_auth():
-    """凭据选择：桌面登录态（Bearer）优先 → 浏览器 cookie 兜底。"""
+    """凭据选择：桌面登录态(Bearer) → 长效令牌自续期(RT) → 浏览器 cookie 兜底。"""
     b = load_bearer()
     if b:
         return {'mode': 'bearer', **b}
+    r = load_bearer_via_rt()
+    if r:
+        return r
     c = load_cookie()
     if c:
         return {'mode': 'cookie', 'cookie': c, 'ua': load_ua()}
@@ -260,6 +437,12 @@ def auth_status():
     if b:
         extra = '（登录态已过期，请重开 WB 客户端）' if b.get('expired') else ''
         return '已找到登录态：%s%s' % (b['file'], extra)
+    ri = rt_info()
+    if ri.get('configured'):
+        if _RT_NOTE:
+            return '长效令牌已配置（%s）但当前不可用：%s；将回退 cookie 兜底' % (ri['file'], _RT_NOTE)
+        return '长效令牌已配置（%s，%s，约 %s 天前刷新）' % (
+            ri['file'], ri.get('token_masked') or '***', ri.get('saved_days_ago'))
     try:
         if load_cookie():
             if _BEARER_NOTE:
@@ -382,8 +565,13 @@ def run_sync(quiet=False):
                 pass
         return False, '未找到凭据（%s）' % st
     if auth['mode'] == 'bearer':
-        warn = '（提示：登录态可能已过期，打开 WB 客户端重登可自愈）' if auth.get('expired') else ''
-        say('[sync] 凭据：桌面登录态 %s %s' % (auth['file'], warn))
+        if auth.get('via') == 'rt':
+            days = round((auth.get('expires_in') or 0) / 86400.0, 1)
+            say('[sync] 凭据：长效令牌自续期（%s，accessToken 有效期约 %s 天，'
+                'refresh_token 30 天滑动）' % (auth['file'], days))
+        else:
+            warn = '（提示：登录态可能已过期，打开 WB 客户端重登可自愈）' if auth.get('expired') else ''
+            say('[sync] 凭据：桌面登录态 %s %s' % (auth['file'], warn))
     else:
         if _BEARER_NOTE:
             say('[sync] 凭据：%s；改用 cookie 兜底' % _BEARER_NOTE)
@@ -412,22 +600,35 @@ def run_sync(quiet=False):
         rows, total = fetch_usage(auth, start, end)
     except urllib.error.HTTPError as e:
         # Bearer 被服务端拒绝（401/403）时，自动回退到浏览器 cookie 再试一次
+        rows = total = None
         if auth.get('mode') == 'bearer' and e.code in (401, 403):
-            ck = load_cookie()
-            if ck:
-                say('[sync] 桌面登录态被拒（HTTP %s）→ 改用浏览器 cookie 兜底重试' % e.code)
-                auth = {'mode': 'cookie', 'cookie': ck, 'ua': load_ua()}
-                try:
-                    rows, total = fetch_usage(auth, start, end)
-                except urllib.error.HTTPError as e2:
-                    say('[sync] cookie 兜底也失败：HTTP %s（cookie 可能已过期，需重新抓取）' % e2.code)
-                    return False, 'HTTP %s：登录态与 cookie 均不可用' % e2.code
-                except Exception as e2:
-                    say('[sync] cookie 兜底异常：%s' % e2)
-                    return False, 'cookie 兜底失败：%s' % e2
-            else:
-                say('[sync] HTTP %s：桌面登录态被服务端拒绝，且无 cookie 兜底' % e.code)
-                return False, 'HTTP %s：登录态不可用且无 cookie 兜底' % e.code
+            # 长效令牌通道：先重刷一次（应对轮换竞态 / 令牌刚过期），成功即恢复
+            if auth.get('via') == 'rt':
+                fresh = load_bearer_via_rt()
+                if fresh:
+                    say('[sync] 长效令牌被拒（HTTP %s）→ 重刷后重试' % e.code)
+                    try:
+                        rows, total = fetch_usage(fresh, start, end)
+                        auth = fresh
+                    except Exception as e2:
+                        say('[sync] 重刷后仍失败：%s' % e2)
+                        rows = total = None
+            if rows is None:
+                ck = load_cookie()
+                if ck:
+                    say('[sync] 桌面登录态被拒（HTTP %s）→ 改用浏览器 cookie 兜底重试' % e.code)
+                    auth = {'mode': 'cookie', 'cookie': ck, 'ua': load_ua()}
+                    try:
+                        rows, total = fetch_usage(auth, start, end)
+                    except urllib.error.HTTPError as e2:
+                        say('[sync] cookie 兜底也失败：HTTP %s（cookie 可能已过期，需重新抓取）' % e2.code)
+                        return False, 'HTTP %s：登录态与 cookie 均不可用' % e2.code
+                    except Exception as e2:
+                        say('[sync] cookie 兜底异常：%s' % e2)
+                        return False, 'cookie 兜底失败：%s' % e2
+                else:
+                    say('[sync] HTTP %s：桌面登录态被服务端拒绝，且无 cookie 兜底' % e.code)
+                    return False, 'HTTP %s：登录态不可用且无 cookie 兜底' % e.code
         elif auth.get('mode') == 'cookie':
             say('[sync] HTTP %s：浏览器 cookie 可能已过期，需重新抓取并更新 %s' % (e.code, CRED_FILE))
             return False, 'HTTP %s：cookie 已过期（需重新抓取）' % e.code
@@ -475,7 +676,58 @@ def run_sync(quiet=False):
     return True, f'新增 {added} 条 · 累计 {len(recs)} 条 / {round(tot, 2)} 积分'
 
 
+def _rt_cli(argv):
+    """长效令牌管理子命令。返回 None 表示不是 RT 子命令（继续走同步流程）。"""
+    if not any(a.startswith('--setup-rt') or a in ('--rt-info', '--rt-status',
+                                                   '--forget-rt', '--export-rt')
+               for a in argv):
+        return None
+    if '--rt-info' in argv or '--rt-status' in argv:
+        print(json.dumps(rt_info(), ensure_ascii=False, indent=2))
+        return 0
+    if '--forget-rt' in argv:
+        ok, msg = forget_rt()
+        print(msg)
+        return 0 if ok else 1
+    if '--setup-rt' in argv and '--setup-rt-file' not in argv:
+        try:
+            val = argv[argv.index('--setup-rt') + 1]
+        except (IndexError, ValueError):
+            print('--setup-rt 后需跟长效令牌字符串')
+            return 1
+        ok, msg = setup_rt(val)
+        print(msg)
+        return 0 if ok else 1
+    if '--setup-rt-file' in argv:
+        try:
+            p = argv[argv.index('--setup-rt-file') + 1]
+            val = open(p, encoding='utf-8').read().strip()
+        except Exception as e:
+            print('--setup-rt-file 读取失败：%s' % e)
+            return 1
+        ok, msg = setup_rt(val)
+        print(msg)
+        return 0 if ok else 1
+    # --export-rt
+    ri = rt_info()
+    print(json.dumps(ri, ensure_ascii=False, indent=2))
+    if ri.get('configured'):
+        print('\n已配置长效令牌，无需重复导出。')
+    else:
+        print('\n导出长效令牌（一次性）两种方式：')
+        print('  A. 已装「WorkBuddy积分助手」技能（totorosir-workbuddy-score）时：')
+        print('     运行其 rt_auth.py --export-rt --save，会自动写入共用文件')
+        print('     ~/.workbuddy/checkin-rt.json，本看板自动识别、无需额外配置。')
+        print('  B. 手动录入已有的长效令牌字符串：')
+        print('     python server_usage_sync.py --setup-rt "<令牌>"')
+    return 0
+
+
 def main():
+    argv = sys.argv[1:]
+    rc = _rt_cli(argv)
+    if rc is not None:
+        sys.exit(rc)
     ok, msg = run_sync(quiet=False)
     if not ok:
         print(f'[sync] 失败：{msg}')
