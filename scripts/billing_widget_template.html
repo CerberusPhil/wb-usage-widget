@@ -621,11 +621,19 @@ $('#btnSync').onclick = ()=>{
   const btn = $('#btnSync');
   btn.textContent = '… 同步中';
   fetch('/api/sync').then(r=>r.json()).then(()=>{
-    setTimeout(()=>{
-      fetch('/api/data').then(r=>r.json()).then(d=>{ render(d, false); btn.textContent = '⟳ 同步'; })
-        .catch(()=>{ btn.textContent = '⟳ 同步'; });
-    }, 6000);
-    setTimeout(()=>{ btn.textContent = '⟳ 同步'; }, 20000);
+    /* 同步完成即刻渲染（1s 轮询，最长 30s）——替代旧版写死 6s 的固定等待 */
+    let waited = 0;
+    const poll = ()=>{
+      fetch('/api/data').then(r=>r.json()).then(d=>{
+        if(d && d.meta && d.meta.syncing && waited < 30){
+          waited += 1;
+          setTimeout(poll, 1000);
+        } else {
+          render(d, false); btn.textContent = '⟳ 同步';
+        }
+      }).catch(()=>{ btn.textContent = '⟳ 同步'; });
+    };
+    setTimeout(poll, 800);
   }).catch(()=>{ btn.textContent = '⟳ 同步'; });
 };
 </script>

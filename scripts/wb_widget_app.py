@@ -137,11 +137,15 @@ def _cookie_renew_worker():
             sys.path.insert(0, base)
         import server_usage_sync as sus
         if sus.rt_info().get('configured'):
-            r = sus.load_bearer_via_rt()          # 刷新 + 回写轮换出的新 refresh_token
+            r = sus.load_bearer_via_rt()          # AT 缓存命中则复用；否则刷新 + 回写轮换值
             if r:
-                days = round((r.get('expires_in') or 0) / 86400.0, 1)
-                log('rt self-renew ok（accessToken 约 %s 天，refresh_token 30 天滑动）'
-                    '；cookie 仅作最后兜底，跳过 Edge 续期' % days)
+                if r.get('at_cached'):
+                    log('at 缓存命中（%s 天龄，免刷新）；refresh_token 由 ≤7 天一次的实刷滑动续期，'
+                        '跳过 Edge' % r.get('at_age_days'))
+                else:
+                    days = round((r.get('expires_in') or 0) / 86400.0, 1)
+                    log('rt self-renew ok（accessToken 约 %s 天，refresh_token 30 天滑动）'
+                        '；cookie 仅作最后兜底，跳过 Edge 续期' % days)
                 return
             log('rt self-renew failed: %s → 回退去续期 cookie' % sus._RT_NOTE)
         import cookie_auto_renew as car

@@ -159,6 +159,73 @@ def _bill_class(ru, mid=''):
 
 _TOK_KEY = {'credit': 'tc', 'free': 'tf', 'ext': 'te'}
 
+# ----------------------------------------------------------------------------
+# 按文件解析缓存（2026-10-14 性能优化）
+# 本机 118 个 jsonl / ~364MB，全量读盘+解析 ~1.5s，且每次同步后 refresh 都要跑。
+# 拆分「解析」与「聚合」：每个文件按 (mtime_ns, size) 缓存解析结果（jsonl 为
+# append-only，mtime+size 不变即内容不变），未变化的文件不再重读重解析
+# ⇒ 缓存全命中时 build_token_data ~0.05s。缓存进程内有效，重启后首次仍全量（正常）。
+# ----------------------------------------------------------------------------
+_FILE_CACHE = {}   # path -> (mtime_ns, size, events)
+
+
+def _parse_file_events(f, is_agent_file):
+    """解析单个 jsonl → 事件列表（读盘 + json.loads 都在这层）。
+
+    事件（tuple）：
+      ('u', sid, snippet)                                          用户消息 → 首条消息候选
+      ('t', sid, crid, sub, agent, name, mkey, ts,
+        pt, ct, th, h, ms, cr, tkey)                               rawUsage 请求
+    """
+    events = []
+    try:
+        fh = open(f, encoding='utf-8', errors='ignore')
+    except OSError:
+        return events
+    with fh:
+        for line in fh:
+            if '"rawUsage"' not in line and '"role"' not in line:
+                continue
+            try:
+                o = json.loads(line)
+            except ValueError:
+                continue
+            pd_ = o.get('providerData') or {}
+            ru = pd_.get('rawUsage')
+            sid = o.get('sessionId') or os.path.basename(f)[:-6]
+            if not ru:
+                if o.get('type') == 'message' and o.get('role') == 'user':
+                    snip = _clean_snippet(_text_of(o.get('content')), 200)
+                    if len(snip) >= 4:
+                        events.append(('u', sid, snip))
+                continue
+            name = (pd_.get('requestModelName') or pd_.get('model') or '').strip() or '未知'
+            mkey = name.lower().replace(' ', '').replace('-', '').replace('_', '')
+            if '（' in mkey and '）' in mkey:    # 去自定义模型名括号注记（仅归并用）
+                mkey = mkey.split('（')[0]
+            events.append(('t', sid,
+                           pd_.get('conversationRequestId'),
+                           bool(pd_.get('isSubAgent')) or is_agent_file,
+                           (str(pd_.get('agent'))[:20] if pd_.get('agent') else ''),
+                           name, mkey,
+                           _ts2s(o.get('timestamp')),
+                           int(ru.get('prompt_tokens') or 0),
+                           int(ru.get('completion_tokens') or 0),
+                           int(ru.get('completion_thinking_tokens') or 0),
+                           int(ru.get('prompt_cache_hit_tokens') or 0),
+                           int(ru.get('prompt_cache_miss_tokens') or 0),
+                           float(ru.get('credit') or 0),
+                           _TOK_KEY[_bill_class(ru, pd_.get('model') or '')]))
+    return events
+
+
+def _new_session(sid):
+    return {'sid': sid, 'n': 0, 'n_sub': 0, 'agent': '',
+            'inp': 0, 'out': 0, 'think': 0, 'hit': 0, 'miss': 0,
+            'credit': 0.0, 'tmin': '', 'tmax': '',
+            'tc': 0, 'tf': 0, 'te': 0,
+            'first_user': '', 'models': {}}
+
 
 def build_token_data():
     """扫描 jsonl → {'sessions', 'stats', 'crids', 'act_min'}"""
@@ -168,118 +235,103 @@ def build_token_data():
     tok_days = {}
     sess_days = {}
     files = glob.glob(os.path.join(PROJECTS, '**', '*.jsonl'), recursive=True)
+    live_cache = {}
     for f in files:
         is_agent_file = os.path.basename(f).startswith('agent-')
         try:
-            fh = open(f, encoding='utf-8', errors='ignore')
+            st = os.stat(f)
+            sig = (st.st_mtime_ns, st.st_size)
         except OSError:
             continue
-        with fh:
-            for line in fh:
-                if '"rawUsage"' not in line and '"role"' not in line:
-                    continue
-                try:
-                    o = json.loads(line)
-                except ValueError:
-                    continue
-                pd_ = o.get('providerData') or {}
-                ru = pd_.get('rawUsage')
-                sid = o.get('sessionId') or os.path.basename(f)[:-6]
-                s = sessions.get(sid)
+        hit = _FILE_CACHE.get(f)
+        if hit is not None and hit[0] == sig:
+            events = hit[1]
+        else:
+            events = _parse_file_events(f, is_agent_file)
+        live_cache[f] = (sig, events)
+        for ev in events:
+            if ev[0] == 'u':
+                s = sessions.get(ev[1])
                 if s is None:
-                    s = sessions[sid] = {'sid': sid, 'n': 0, 'n_sub': 0, 'agent': '',
-                                         'inp': 0, 'out': 0, 'think': 0, 'hit': 0, 'miss': 0,
-                                         'credit': 0.0, 'tmin': '', 'tmax': '',
-                                         'tc': 0, 'tf': 0, 'te': 0,
-                                         'first_user': '', 'models': {}}
-                # 首条用户消息（用于无标题会话的回填）
-                if not s['first_user'] and o.get('type') == 'message' and o.get('role') == 'user':
-                    snip = _clean_snippet(_text_of(o.get('content')), 200)
-                    if len(snip) >= 4:
-                        s['first_user'] = snip
-                if not ru:
-                    continue
-                c = pd_.get('conversationRequestId')
-                if c:
-                    crids.add(c)
-                if pd_.get('isSubAgent') or is_agent_file:
-                    s['n_sub'] += 1
-                    if not s['agent'] and pd_.get('agent'):
-                        s['agent'] = str(pd_['agent'])[:20]
-                name = (pd_.get('requestModelName') or pd_.get('model') or '').strip() or '未知'
-                mkey = name.lower().replace(' ', '').replace('-', '').replace('_', '')
-                if '（' in mkey and '）' in mkey:    # 去自定义模型名括号注记（仅归并用）
-                    mkey = mkey.split('（')[0]
-                ts = _ts2s(o.get('timestamp'))
-                if ts:
-                    act_min.add(ts)
-                mm = s['models'].get(mkey)
-                if mm is None:
-                    mm = s['models'][mkey] = {'names': {}, 'n': 0, 'inp': 0, 'out': 0,
-                                              'think': 0, 'hit': 0, 'miss': 0, 'credit': 0.0,
-                                              'tc': 0, 'tf': 0, 'te': 0}
-                mm['names'][name] = mm['names'].get(name, 0) + 1
-                pt = int(ru.get('prompt_tokens') or 0)
-                ct = int(ru.get('completion_tokens') or 0)
-                th = int(ru.get('completion_thinking_tokens') or 0)
-                h = int(ru.get('prompt_cache_hit_tokens') or 0)
-                ms = int(ru.get('prompt_cache_miss_tokens') or 0)
-                cr = float(ru.get('credit') or 0)
-                tt = pt + ct
-                tkey = _TOK_KEY[_bill_class(ru, pd_.get('model') or '')]   # tc / tf / te
-                for obj in (s, mm):
-                    obj['n'] += 1
-                    obj['inp'] += pt
-                    obj['out'] += ct
-                    obj['think'] += th
-                    obj['hit'] += h
-                    obj['miss'] += ms
-                    obj['credit'] += cr
-                    obj[tkey] += tt
-                if ts:
-                    if not s['tmin'] or ts < s['tmin']:
-                        s['tmin'] = ts
-                    if not s['tmax'] or ts > s['tmax']:
-                        s['tmax'] = ts
-                    td = tok_days.get(ts[:10])
-                    if td is None:
-                        td = tok_days[ts[:10]] = {'n': 0, 'inp': 0, 'out': 0, 'think': 0,
-                                                  'credit': 0.0, 'tc': 0, 'tf': 0, 'te': 0}
-                    td['n'] += 1
-                    td['inp'] += pt
-                    td['out'] += ct
-                    td['think'] += th
-                    td['credit'] += cr
-                    td[tkey] += tt
-                    dmap = sess_days.get(ts[:10])
-                    if dmap is None:
-                        dmap = sess_days[ts[:10]] = {}
-                    ss = dmap.get(sid)
-                    if ss is None:
-                        ss = dmap[sid] = {'n': 0, 'inp': 0, 'out': 0, 'think': 0,
-                                          'hit': 0, 'miss': 0, 'credit': 0.0,
-                                          'tc': 0, 'tf': 0, 'te': 0, 'models': {}}
-                    ss['n'] += 1
-                    ss['inp'] += pt
-                    ss['out'] += ct
-                    ss['think'] += th
-                    ss['hit'] += h
-                    ss['miss'] += ms
-                    ss['credit'] += cr
-                    ss[tkey] += tt
-                    sm = ss['models'].get(mkey)
-                    if sm is None:
-                        sm = ss['models'][mkey] = {'n': 0, 'inp': 0, 'out': 0, 'think': 0,
-                                                  'hit': 0, 'miss': 0, 'credit': 0.0,
-                                                  'tc': 0, 'tf': 0, 'te': 0}
-                    sm['n'] += 1
-                    sm['inp'] += pt
-                    sm['out'] += ct
-                    sm['think'] += th
-                    sm['hit'] += h
-                    sm['miss'] += ms
-                    sm['credit'] += cr
-                    sm[tkey] += tt
+                    s = sessions[ev[1]] = _new_session(ev[1])
+                if not s['first_user']:
+                    s['first_user'] = ev[2]
+                continue
+            (_, sid, c, sub, agent, name, mkey, ts,
+             pt, ct, th, h, ms, cr, tkey) = ev
+            s = sessions.get(sid)
+            if s is None:
+                s = sessions[sid] = _new_session(sid)
+            if c:
+                crids.add(c)
+            if sub:
+                s['n_sub'] += 1
+                if agent and not s['agent']:
+                    s['agent'] = agent
+            mm = s['models'].get(mkey)
+            if mm is None:
+                mm = s['models'][mkey] = {'names': {}, 'n': 0, 'inp': 0, 'out': 0,
+                                          'think': 0, 'hit': 0, 'miss': 0, 'credit': 0.0,
+                                          'tc': 0, 'tf': 0, 'te': 0}
+            mm['names'][name] = mm['names'].get(name, 0) + 1
+            tt = pt + ct
+            for obj in (s, mm):
+                obj['n'] += 1
+                obj['inp'] += pt
+                obj['out'] += ct
+                obj['think'] += th
+                obj['hit'] += h
+                obj['miss'] += ms
+                obj['credit'] += cr
+                obj[tkey] += tt
+            if ts:
+                act_min.add(ts)
+                if not s['tmin'] or ts < s['tmin']:
+                    s['tmin'] = ts
+                if not s['tmax'] or ts > s['tmax']:
+                    s['tmax'] = ts
+                td = tok_days.get(ts[:10])
+                if td is None:
+                    td = tok_days[ts[:10]] = {'n': 0, 'inp': 0, 'out': 0, 'think': 0,
+                                              'credit': 0.0, 'tc': 0, 'tf': 0, 'te': 0}
+                td['n'] += 1
+                td['inp'] += pt
+                td['out'] += ct
+                td['think'] += th
+                td['credit'] += cr
+                td[tkey] += tt
+                dmap = sess_days.get(ts[:10])
+                if dmap is None:
+                    dmap = sess_days[ts[:10]] = {}
+                ss = dmap.get(sid)
+                if ss is None:
+                    ss = dmap[sid] = {'n': 0, 'inp': 0, 'out': 0, 'think': 0,
+                                      'hit': 0, 'miss': 0, 'credit': 0.0,
+                                      'tc': 0, 'tf': 0, 'te': 0, 'models': {}}
+                ss['n'] += 1
+                ss['inp'] += pt
+                ss['out'] += ct
+                ss['think'] += th
+                ss['hit'] += h
+                ss['miss'] += ms
+                ss['credit'] += cr
+                ss[tkey] += tt
+                sm = ss['models'].get(mkey)
+                if sm is None:
+                    sm = ss['models'][mkey] = {'n': 0, 'inp': 0, 'out': 0, 'think': 0,
+                                               'hit': 0, 'miss': 0, 'credit': 0.0,
+                                               'tc': 0, 'tf': 0, 'te': 0}
+                sm['n'] += 1
+                sm['inp'] += pt
+                sm['out'] += ct
+                sm['think'] += th
+                sm['hit'] += h
+                sm['miss'] += ms
+                sm['credit'] += cr
+                sm[tkey] += tt
+    # 清理已删文件的缓存项（防止无限增长）
+    _FILE_CACHE.clear()
+    _FILE_CACHE.update(live_cache)
 
     titles = _titles()
     overrides = _load_overrides()

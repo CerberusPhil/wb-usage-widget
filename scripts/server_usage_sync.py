@@ -52,7 +52,9 @@ HOME_WB = os.path.expanduser('~') + '/.workbuddy'
 CRED_FILE = os.path.join(HOME_WB, 'server_usage.json')
 CACHE_FILE = os.environ.get('WB_SERVER_USAGE_CACHE') or os.path.join(HOME_WB, 'server_usage_cache.json')
 BASE = 'https://www.workbuddy.cn'
-WINDOW_DAYS = 30                    # 每次拉近 30 天（接口为 31 天滚动窗口，留 1 天安全余量）
+WINDOW_DAYS = 30                    # 全量窗口：每次拉近 30 天（接口为 31 天滚动窗口，留 1 天安全余量）
+INCR_DAYS = 2                       # 增量窗口：日常同步只拉近 2 天（结算值晚到/更新也覆盖）
+FULL_SYNC_INTERVAL = 20             # 全量兜底周期（小时）：20h 一次全量，其余走增量（2026-10-14 优化）
 
 UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36')
@@ -272,6 +274,12 @@ RT_HEADERS = {
     'X-Auth-Refresh-Source': 'plugin',
     'X-Domain': 'copilot.tencent.com',
 }
+# accessToken 复用缓存（2026-10-14 性能优化）：刷新应答的 accessToken 实际有
+# 28 天有效期，没必要每次同步都打刷新端点。本地缓存 7 天内直接复用；
+# 过期/被 401 拒时强制重刷（force=True）兜底。省一次网络往返，也减少对
+# copilot.tencent.com 的依赖。缓存文件与 rt 同目录同安全级别（0600 级）。
+AT_CACHE_FILE = os.path.join(HOME_WB, 'server_usage_at.json')
+AT_MAX_AGE_DAYS = 7
 
 
 def _rt_paths():
@@ -346,9 +354,32 @@ def rt_refresh(tok):
             'domain': d.get('domain') or 'www.codebuddy.cn'}
 
 
-def load_bearer_via_rt():
-    """长效令牌通道：刷新换新 accessToken 并回写轮换值。
+def _at_cache_read():
+    """读 accessToken 复用缓存；无/过期返回 None。"""
+    try:
+        with open(AT_CACHE_FILE, encoding='utf-8') as f:
+            obj = json.load(f)
+        at = str(obj.get('at') or '')
+        ts = float(obj.get('ts') or 0)
+        if at and ts and (time.time() - ts) < AT_MAX_AGE_DAYS * 86400:
+            return {'token': at, 'age_days': (time.time() - ts) / 86400.0}
+    except Exception:
+        pass
+    return None
 
+
+def _at_cache_write(at):
+    try:
+        with open(AT_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump({'v': 1, 'at': at, 'ts': int(time.time())}, f)
+    except Exception:
+        pass
+
+
+def load_bearer_via_rt(force=False):
+    """长效令牌通道：优先复用 7 天内缓存的 accessToken；否则刷新换新并回写轮换值。
+
+    force=True 时跳过缓存强制刷新（401/403 兜底用）。
     返回 {'mode':'bearer','token':..,'domain':..,'expired':False,'file':..,'via':'rt',...}
     或 None（未配置 / 刷新失败；原因写入 _RT_NOTE 供界面与日志显示）。
     """
@@ -357,6 +388,13 @@ def load_bearer_via_rt():
     if not tok:
         _RT_NOTE = '未配置长效令牌'
         return None
+    if not force:
+        cached = _at_cache_read()
+        if cached:
+            _RT_NOTE = ''
+            return {'mode': 'bearer', 'token': cached['token'], 'expired': False,
+                    'domain': 'www.codebuddy.cn', 'file': path, 'via': 'rt',
+                    'at_cached': True, 'at_age_days': round(cached['age_days'], 1)}
     r = rt_refresh(tok)
     if not r.get('ok'):
         _RT_NOTE = '长效令牌刷新失败：%s' % r.get('msg')
@@ -367,9 +405,10 @@ def load_bearer_via_rt():
             _rt_write(new_rt, path, source='refresh')
         except Exception:
             pass        # 写失败不影响本次同步（旧令牌通常仍可用）
+    _at_cache_write(r['token'])
     _RT_NOTE = ''
     return {'mode': 'bearer', 'token': r['token'], 'expired': False,
-            'domain': r.get('domain') or 'www.codebuddy.cn',
+            'domain': 'www.codebuddy.cn',      # 账单接口的规范域名（api() 会自动加备用域名）
             'file': path, 'via': 'rt', 'expires_in': r.get('expires_in')}
 
 
@@ -566,9 +605,13 @@ def run_sync(quiet=False):
         return False, '未找到凭据（%s）' % st
     if auth['mode'] == 'bearer':
         if auth.get('via') == 'rt':
-            days = round((auth.get('expires_in') or 0) / 86400.0, 1)
-            say('[sync] 凭据：长效令牌自续期（%s，accessToken 有效期约 %s 天，'
-                'refresh_token 30 天滑动）' % (auth['file'], days))
+            if auth.get('at_cached'):
+                say('[sync] 凭据：长效令牌（accessToken 本地缓存 %.1f 天龄，7 天内免刷新）'
+                    % auth.get('at_age_days', 0))
+            else:
+                days = round((auth.get('expires_in') or 0) / 86400.0, 1)
+                say('[sync] 凭据：长效令牌自续期（%s，accessToken 有效期约 %s 天，'
+                    'refresh_token 30 天滑动）' % (auth['file'], days))
         else:
             warn = '（提示：登录态可能已过期，打开 WB 客户端重登可自愈）' if auth.get('expired') else ''
             say('[sync] 凭据：桌面登录态 %s %s' % (auth['file'], warn))
@@ -581,8 +624,6 @@ def run_sync(quiet=False):
         say('[sync] 使用系统代理：%s' % _px)
 
     now = datetime.now()
-    # 31 天滚动窗口 → 每次拉近 30 天，合并进缓存（幂等：按 requestId 去重覆盖）
-    start = (now - timedelta(days=WINDOW_DAYS)).strftime('%Y-%m-%d 00:00:00')
     end = now.strftime('%Y-%m-%d %H:%M:%S')
 
     # 旧缓存
@@ -593,8 +634,24 @@ def run_sync(quiet=False):
                 old = json.load(f)
             cache['records'] = old.get('records') or {}
             cache['summary'] = old.get('summary')
+            cache['last_full_sync'] = old.get('last_full_sync')
         except Exception as e:
             say(f'[sync] 旧缓存读取失败（将重建）: {e}')
+
+    # 拉取窗口（2026-10-14 优化）：
+    #   全量 30 天：距上次全量 ≥20h 时做一次（兜住结算值晚到/更新、31 天滚动窗口不漏段）
+    #   增量近 2 天：其余每次（手动点同步/30 分钟自动同步都走这条，网络耗时降 ~70%）
+    last_full = cache.get('last_full_sync') or ''
+    full_due = True
+    if last_full:
+        try:
+            full_due = (now - datetime.strptime(last_full, '%Y-%m-%d %H:%M:%S')) >= timedelta(hours=FULL_SYNC_INTERVAL)
+        except ValueError:
+            pass
+    if full_due:
+        start = (now - timedelta(days=WINDOW_DAYS)).strftime('%Y-%m-%d 00:00:00')
+    else:
+        start = (now - timedelta(days=INCR_DAYS)).strftime('%Y-%m-%d 00:00:00')
 
     try:
         rows, total = fetch_usage(auth, start, end)
@@ -602,9 +659,9 @@ def run_sync(quiet=False):
         # Bearer 被服务端拒绝（401/403）时，自动回退到浏览器 cookie 再试一次
         rows = total = None
         if auth.get('mode') == 'bearer' and e.code in (401, 403):
-            # 长效令牌通道：先重刷一次（应对轮换竞态 / 令牌刚过期），成功即恢复
+            # 长效令牌通道：先强制重刷一次（应对轮换竞态 / 令牌刚过期），成功即恢复
             if auth.get('via') == 'rt':
-                fresh = load_bearer_via_rt()
+                fresh = load_bearer_via_rt(force=True)
                 if fresh:
                     say('[sync] 长效令牌被拒（HTTP %s）→ 重刷后重试' % e.code)
                     try:
@@ -641,7 +698,10 @@ def run_sync(quiet=False):
 
     added = 0
     if not rows:
-        say('[sync] 警告：本次返回 0 条（窗口边界或服务端异常），缓存保持不变')
+        if full_due:
+            say('[sync] 警告：全量窗口返回 0 条（窗口边界或服务端异常），缓存保持不变')
+        else:
+            say('[sync] 增量窗口返回 0 条（近 %d 天无新账单，正常）' % INCR_DAYS)
     for r in rows:
         rid = r.get('requestId')
         if not rid:
@@ -658,6 +718,8 @@ def run_sync(quiet=False):
         say(f'[sync] summary 拉取失败（保留旧值）: {e}')
 
     cache['updated_at'] = now.strftime('%Y-%m-%d %H:%M:%S')
+    if full_due:
+        cache['last_full_sync'] = end
     tmp = CACHE_FILE + '.tmp'
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(cache, f, ensure_ascii=False)
@@ -666,7 +728,7 @@ def run_sync(quiet=False):
     # 统计
     recs = list(cache['records'].values())
     tot = sum(float(x.get('credit') or 0) for x in recs)
-    say(f'[sync] ok  区间={start}~{end}  本次返回={len(rows)}（total={total}）新增={added}')
+    say(f'[sync] ok  区间={start}~{end}（{"全量" if full_due else "增量"}）  本次返回={len(rows)}（total={total}）新增={added}')
     say(f'[sync] 缓存累计: {len(recs)} 条 / {round(tot, 2)} 积分')
     if cache.get('summary'):
         pk = cache['summary'].get('Packages') or []
