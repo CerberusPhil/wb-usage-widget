@@ -372,7 +372,7 @@
 <header>
   <h1>Workbuddy积分看板<span class="dot"></span></h1>
   <span class="sub">账单真值 · 积分 / Token / 会话</span>
-  <button id="refreshBtn" onclick="location.reload()" title="重新读取账单缓存并渲染">&#8635; 刷新数据</button>
+  <button id="refreshBtn" onclick="syncThenReload(this)" title="同步最新账单并重渲染（约 1~2 秒）">&#8635; 刷新数据</button>
   <span class="refreshed num" id="refreshedAt"></span>
   <span class="theme-label">THEME</span>
   <span class="themebar" id="themeBar"></span>
@@ -451,6 +451,29 @@ const BALANCE_URL = 'https://www.workbuddy.cn/profile/growth-center';
 /* ---------- 工具 ---------- */
 function fmt(n){ return n.toLocaleString('zh-CN'); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* 刷新数据 = 先触发一次账单同步（与挂件「⟳ 同步」同链路），同步完成即重载出最新视图。
+   无后端时（如直接打开静态快照 billing_dashboard.html）fetch 失败 → 退化为直接重载。 */
+let _syncReloading = false;
+function syncThenReload(btn){
+  if(_syncReloading) return;
+  _syncReloading = true;
+  const old = btn.innerHTML;
+  btn.innerHTML = '&#8987; 同步中…';
+  let done = false;
+  const finish = () => { if(!done){ done = true; location.reload(); } };
+  fetch('/api/sync').then(r => r.json()).then(() => {
+    let waited = 0;
+    const poll = () => {
+      fetch('/api/data').then(r => r.json()).then(d => {
+        if(d && d.meta && d.meta.syncing && waited < 30){ waited += 1; setTimeout(poll, 1000); }
+        else finish();
+      }).catch(finish);
+    };
+    setTimeout(poll, 800);
+  }).catch(finish);
+  setTimeout(finish, 35000);   // 兜底：35s 后无论如何重载
+}
 function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
 function dkey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 const WD = ['周日','周一','周二','周三','周四','周五','周六'];
