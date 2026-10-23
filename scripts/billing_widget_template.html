@@ -156,8 +156,8 @@
       <button class="tb" data-t="wb" title="WorkBuddy"></button>
       <button class="tb" data-t="eva01" title="EVA-01"></button>
       <button class="tb" data-t="eva02" title="EVA-02"></button>
-      <button class="hbtn" id="btnMin" title="最小化到任务栏">−</button>
-      <button class="hbtn" id="btnClose" title="关闭挂件（后台同步服务会继续运行）">✕</button>
+      <button class="hbtn" id="btnMin" title="收起到系统托盘（点任务栏时钟旁的托盘图标恢复）">−</button>
+      <button class="hbtn" id="btnClose" title="退出挂件（exe 模式下同步服务随之停止）">✕</button>
     </span>
   </div>
 
@@ -578,7 +578,8 @@ setInterval(()=>{
   fetch('/api/data').then(r=>r.json()).then(d=>render(d, false)).catch(()=>{});
 }, 60000);
 
-/* 最小化 / 关闭 */
+/* 最小化 / 关闭（v1.10.0：「−」= 收进系统托盘，语义在 Python 侧 minimize_widget 内；
+   托盘创建失败时 Python 自动降级为旧「最小化到任务栏」，JS 无感） */
 $('#btnMin').onclick = ()=>{
   try{
     if(window.pywebview && window.pywebview.api && window.pywebview.api.minimize_widget){

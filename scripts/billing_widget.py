@@ -14,8 +14,10 @@ Workbuddy积分看板 · 桌面壳（pywebview，缺则 Edge --app 降级）
 交互（页内按钮，2026-09-21；拖拽/点击手势当日二次重构）：
   - 任意卡片/空白处拖动：移动窗口（自实现指针拖拽：位移越过 4px 阈值才启用鼠标捕获并开拖，
     纯点击不被打断；drag_begin/drag_to/drag_end → SetWindowPos）
-  - 页头 −  最小化到任务栏（pywebview minimize，失败降级 Win32 ShowWindow）
-  - 页头 ✕  关闭窗口（仅关窗；后台同步服务继续跑，要连服务一起停用 stop_billing_widget.bat）
+  - 页头 −  收进系统托盘（隐藏窗口 + 通知区域图标；左键点托盘图标恢复，右键菜单：
+            显示/隐藏、立即同步、打开完整版、退出 —— tray_icon.py，v1.10.0）
+  - 页头 ✕  退出程序（先摘托盘图标再毁窗；exe 模式下 8790 同步服务随之停止，
+            bat 源码模式下服务是独立进程、继续运行，用 stop_billing_widget.bat 停）
   - 右缘拖动：等比缩放（高按当前宽高比跟随，内容整体缩放）
   - 下缘拖动：纵向拉长 → 列表显示更多行；按住 Shift = 锁比例缩放
   - 右下角拖动：自由调整宽高（斜向一次到位）；按住 Shift = 锁比例缩放
@@ -38,6 +40,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if getattr(sys, 'frozen', False):            # PyInstaller onefile：数据文件解包在 _MEIPASS 根
     SCRIPT_DIR = getattr(sys, '_MEIPASS', SCRIPT_DIR)
 ICON_FILE = os.path.join(SCRIPT_DIR, 'widget_icon.ico')
+import atexit
+import tray_icon as _tray        # 系统托盘（纯 ctypes，零第三方依赖；v1.10.0）
+atexit.register(_tray.remove_tray)   # 兜底：任何退出路径都把托盘图标摘干净
 BROWSERS = [
     r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
     r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
@@ -125,6 +130,10 @@ def _user32():
     u.GetWindowThreadProcessId.restype = ctypes.c_uint
     u.InternalGetWindowText.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
     u.InternalGetWindowText.restype = ctypes.c_int
+    u.IsWindowVisible.argtypes = [ctypes.c_void_p]          # 托盘显隐切换的「单一真相」查询
+    u.IsWindowVisible.restype = ctypes.c_bool
+    u.SetForegroundWindow.argtypes = [ctypes.c_void_p]      # 托盘恢复窗口后抢前台
+    u.SetForegroundWindow.restype = ctypes.c_bool
     return u
 
 
@@ -257,6 +266,11 @@ class WidgetApi:
     """JS → Python 桥：窗口控制（关闭 / 最小化 / 缩放）。"""
 
     def close_widget(self):
+        """✕：真退出。先摘托盘图标再毁窗（毁窗后进程收尾，来不及 NIM_DELETE）。"""
+        try:
+            _tray.remove_tray()
+        except Exception:
+            pass
         import webview
         for w in list(webview.windows):
             try:
@@ -266,7 +280,16 @@ class WidgetApi:
         return True
 
     def minimize_widget(self):
-        """最小化到任务栏：pywebview 原生优先，失败走 Win32。"""
+        """「—」：托盘可用 → 隐藏窗口收进托盘（左键托盘图标恢复）；
+        托盘不可用（创建失败/非 Windows）→ 降级为原「最小化到任务栏」，JS 无感。"""
+        try:
+            if _tray.is_active():
+                hwnd = _hwnd(timeout=1.5)
+                if hwnd and _win_hide(hwnd):
+                    log('tray: hide to tray (btnMin)')
+                    return True
+        except Exception:
+            pass
         try:
             import webview
             win = webview.windows[0] if webview.windows else None
@@ -386,6 +409,108 @@ class WidgetApi:
         return True
 
 
+# ---------- 托盘动作（回调在托盘线程内执行；全捕获异常，托盘绝不能拖死挂件本体） ----------
+SW_HIDE, SW_SHOW = 0, 5
+HWND_TOPMOST = -1
+SWP_NOSIZE, SWP_NOMOVE, SWP_SHOWWINDOW = 0x1, 0x2, 0x40
+
+
+def _win_hide(hwnd):
+    """隐藏窗口（pywebview 原生优先，Win32 兜底）。"""
+    try:
+        import webview
+        win = webview.windows[0] if webview.windows else None
+        if win is not None:
+            win.hide()
+            return True
+    except Exception:
+        pass
+    try:
+        _user32().ShowWindow(hwnd, SW_HIDE)
+        return True
+    except Exception:
+        return False
+
+
+def _win_show(hwnd):
+    """显示窗口并重申置顶 + 抢前台（隐藏再显示后 on_top 可能被压过；顺带唤醒 WebView2 重绘）。"""
+    try:
+        import webview
+        win = webview.windows[0] if webview.windows else None
+        if win is not None:
+            win.show()
+    except Exception:
+        try:
+            _user32().ShowWindow(hwnd, SW_SHOW)
+        except Exception:
+            pass
+    try:
+        u = _user32()
+        u.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW)
+        u.SetForegroundWindow(hwnd)
+    except Exception:
+        pass
+
+
+def toggle_widget():
+    """托盘左键 / 菜单「显示 / 隐藏」：可见性以 IsWindowVisible 实时查询为唯一真相（免锁）。"""
+    hwnd = _hwnd(timeout=2.0)
+    if not hwnd:
+        log('tray toggle: hwnd NOT FOUND')
+        return
+    if _user32().IsWindowVisible(hwnd):
+        _win_hide(hwnd)
+        log('tray: hide to tray')
+    else:
+        _win_show(hwnd)
+        log('tray: restore from tray')
+
+
+def sync_now_via_tray():
+    """托盘「立即同步」：走 8790 的 /api/sync（服务端 daemon 线程执行，立即返回）。"""
+    try:
+        import urllib.request
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # 直连，防系统代理劫持 127.0.0.1
+        opener.open(URL_BASE + '/api/sync', timeout=3).read()
+        log('tray: sync triggered')
+    except Exception as e:
+        log('tray: sync failed %r' % e)
+
+
+def open_full_via_tray():
+    """托盘「打开完整版」：系统默认浏览器打开 /full。"""
+    try:
+        os.startfile(URL_BASE + '/full')
+        log('tray: open full')
+        return
+    except Exception:
+        pass
+    try:
+        import webbrowser
+        webbrowser.open(URL_BASE + '/full')
+        log('tray: open full (webbrowser)')
+    except Exception as e:
+        log('tray: open full failed %r' % e)
+
+
+def exit_via_tray():
+    """托盘「退出」：先摘图标再毁窗（顺序不可反——毁窗后进程收尾，来不及 NIM_DELETE）。"""
+    try:
+        _tray.remove_tray()
+    except Exception:
+        pass
+    log('exit via tray')
+    try:
+        import webview
+        for w in list(webview.windows):
+            try:
+                w.destroy()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def run_fallback(url, w, h, x, y):
     b = find_browser()
     if not b:
@@ -414,10 +539,23 @@ def run_pywebview(url, w, h, x, y, transparent):
         kw['x'] = x
     if y is not None:
         kw['y'] = y
-    webview.create_window(**kw)
+    win = webview.create_window(**kw)
+    # 托盘：start 前启动（自建消息循环线程，不依赖 GUI 已就绪）；失败降级 —— minimize 回退旧路径
+    try:
+        ok = _tray.start_tray(ICON_FILE, TITLE,
+                              on_toggle=toggle_widget, on_sync=sync_now_via_tray,
+                              on_full=open_full_via_tray, on_exit=exit_via_tray)
+        log('tray %s' % ('ready' if ok else 'init failed (%s); minimize falls back to taskbar'
+                         % (_tray._state.get('error') or 'unknown')))
+    except Exception as e:
+        log('tray init error %r' % e)
     # 图标双通道：① start(icon=) 原生设 Form.Icon（winforms 后端实际支持）；
     #            ② apply_icon 线程用 WM_SETICON 兜底（防原生通道失效）
     webview.start(apply_icon, icon=ICON_FILE)
+    try:
+        _tray.remove_tray()       # 窗口被外部途径关闭（如任务管理器关窗）时兜底摘图标（幂等）
+    except Exception:
+        pass
     return 0
 
 

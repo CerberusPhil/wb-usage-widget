@@ -87,6 +87,8 @@ def focus_existing_window(timeout=3.0):
 
     找窗用 billing_widget.find_hwnd（标题 + 进程映像名过滤，排除 Win11 标签代理窗），
     不能用 FindWindowW —— 否则会命中浏览器同名标签页的 TabProxyWindow 幽灵窗。
+    v1.10.0：窗口可能已「收进托盘」（隐藏而非最小化）——SW_RESTORE 对隐藏窗无效，
+    须按 IsWindowVisible 分支处理，并在显示后重申置顶（隐藏再显示后 on_top 会被压过）。
     """
     import ctypes
     try:
@@ -97,12 +99,23 @@ def focus_existing_window(timeout=3.0):
     u = ctypes.windll.user32
     u.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
     u.SetForegroundWindow.argtypes = [ctypes.c_void_p]
+    u.IsWindowVisible.argtypes = [ctypes.c_void_p]
+    u.IsWindowVisible.restype = ctypes.c_bool
+    u.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
+                               ctypes.c_int, ctypes.c_int, ctypes.c_uint]
     deadline = time.time() + timeout
     while time.time() < deadline:
         hwnd = bw.find_hwnd(_window_title(), exe_name=me)
         if hwnd:
-            u.ShowWindow(ctypes.c_void_p(hwnd), 9)          # SW_RESTORE
-            u.SetForegroundWindow(ctypes.c_void_p(hwnd))
+            h = ctypes.c_void_p(hwnd)
+            if u.IsWindowVisible(h):
+                u.ShowWindow(h, 9)                          # SW_RESTORE（最小化场景）
+            else:
+                u.ShowWindow(h, 5)                          # SW_SHOW（收进托盘场景）
+            SWP_NOSIZE, SWP_NOMOVE, SWP_SHOWWINDOW = 0x1, 0x2, 0x40
+            u.SetWindowPos(h, ctypes.c_void_p(-1), 0, 0, 0, 0,        # HWND_TOPMOST
+                           SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW)
+            u.SetForegroundWindow(h)
             return True
         time.sleep(0.15)
     return False
@@ -183,9 +196,26 @@ def main():
     url = 'http://127.0.0.1:%d/' % port
     log('opening widget window -> %s' % url)
     threading.Thread(target=_cookie_renew_worker, daemon=True, name='wb-cookie-renew').start()
+    if '--tray-smoke' in argv:
+        threading.Thread(target=_tray_smoke, daemon=True, name='wb-tray-smoke').start()
     code = bw.run_pywebview(url, 420, 450, None, None, False)
     log('widget window closed (exit=%s)' % code)
     return code
+
+
+def _tray_smoke():
+    """托盘链路自测（--tray-smoke，2026-10-23）：起窗 8s 后自动走
+    隐藏 → 恢复 → 退出 全链路，日志序列可供脚本断言（不依赖真人点鼠标）。"""
+    time.sleep(8)
+    try:
+        import billing_widget as bw
+        bw.toggle_widget()          # 隐藏 → 日志 tray: hide to tray
+        time.sleep(2)
+        bw.toggle_widget()          # 恢复 → 日志 tray: restore from tray
+        time.sleep(2)
+        bw.exit_via_tray()          # 退出 → 日志 exit via tray + tray loop exit
+    except Exception as e:
+        print('[smoke] failed %r' % e)
 
 
 if __name__ == '__main__':
