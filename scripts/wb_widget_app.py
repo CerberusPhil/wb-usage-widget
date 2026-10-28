@@ -27,7 +27,10 @@ _STDIO_REDIRECTED = False
 
 
 def _log_file():
-    base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+    if sys.platform == 'darwin':
+        base = os.path.expanduser('~/Library/Logs')
+    else:
+        base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
     d = os.path.join(base, LOG_DIR_NAME)
     try:
         os.makedirs(d, exist_ok=True)
@@ -64,6 +67,20 @@ def _setup_frozen_stdio():
 
 def acquire_single_instance():
     """命名互斥锁；返回 False = 已有实例在运行。"""
+    if sys.platform == 'darwin':
+        import fcntl
+        lock = open(os.path.join(os.path.dirname(_log_file()), 'widget.lock'), 'a+')
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            lock.close()
+            return False
+        lock.seek(0)
+        lock.truncate()
+        lock.write(str(os.getpid()))
+        lock.flush()
+        _KEEP.append(lock)
+        return True
     import ctypes
     k32 = ctypes.WinDLL('kernel32', use_last_error=True)
     k32.CreateMutexW.restype = ctypes.c_void_p
@@ -83,52 +100,33 @@ def _window_title():
 
 
 def focus_existing_window(timeout=3.0):
-    """把已有挂件窗口带到前台（尽力而为，可能受系统焦点策略限制）。
-
-    找窗用 billing_widget.find_hwnd（标题 + 进程映像名过滤，排除 Win11 标签代理窗），
-    不能用 FindWindowW —— 否则会命中浏览器同名标签页的 TabProxyWindow 幽灵窗。
-    v1.10.0：窗口可能已「收进托盘」（隐藏而非最小化）——SW_RESTORE 对隐藏窗无效，
-    须按 IsWindowVisible 分支处理，并在显示后重申置顶（隐藏再显示后 on_top 会被压过）。
-    """
-    import ctypes
-    try:
-        import billing_widget as bw
-        me = os.path.basename(sys.executable).lower()
-    except Exception:
-        return False
-    u = ctypes.windll.user32
-    u.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
-    u.SetForegroundWindow.argtypes = [ctypes.c_void_p]
-    u.IsWindowVisible.argtypes = [ctypes.c_void_p]
-    u.IsWindowVisible.restype = ctypes.c_bool
-    u.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
-                               ctypes.c_int, ctypes.c_int, ctypes.c_uint]
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        hwnd = bw.find_hwnd(_window_title(), exe_name=me)
-        if hwnd:
-            h = ctypes.c_void_p(hwnd)
-            if u.IsWindowVisible(h):
-                u.ShowWindow(h, 9)                          # SW_RESTORE（最小化场景）
-            else:
-                u.ShowWindow(h, 5)                          # SW_SHOW（收进托盘场景）
-            SWP_NOSIZE, SWP_NOMOVE, SWP_SHOWWINDOW = 0x1, 0x2, 0x40
-            u.SetWindowPos(h, ctypes.c_void_p(-1), 0, 0, 0, 0,        # HWND_TOPMOST
-                           SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW)
-            u.SetForegroundWindow(h)
+    """Ask the owning process to show its popover through its normal lifecycle."""
+    if sys.platform == 'darwin':
+        import signal
+        try:
+            with open(os.path.join(os.path.dirname(_log_file()), 'widget.lock')) as f:
+                os.kill(int(f.read()), signal.SIGUSR1)
             return True
-        time.sleep(0.15)
-    return False
+        except (OSError, ValueError):
+            return False
+    import ctypes
+    u = ctypes.windll.user32
+    u.RegisterWindowMessageW.argtypes = [ctypes.c_wchar_p]
+    u.RegisterWindowMessageW.restype = ctypes.c_uint
+    u.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                             ctypes.c_size_t, ctypes.c_ssize_t]
+    u.PostMessageW.restype = ctypes.c_bool
+    message = u.RegisterWindowMessageW('WBCreditWidget_ShowPopup')
+    return bool(message and u.PostMessageW(ctypes.c_void_p(0xffff), message, 0, 0))
 
 
 def wait_server(port, timeout=25.0):
     """轮询等待服务可用（自己新起的 / 复用的旧实例均可）。"""
-    import urllib.request
-    url = 'http://127.0.0.1:%d/api/data' % port
+    from billing_server import local_request
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            urllib.request.urlopen(url, timeout=1.5)
+            local_request(port, '/api/data')
             return True
         except Exception:
             time.sleep(0.25)
@@ -162,10 +160,21 @@ def _cookie_renew_worker():
                 return
             log('rt self-renew failed: %s → 回退去续期 cookie' % sus._RT_NOTE)
         import cookie_auto_renew as car
+        creds = car.load_creds()
+        if not creds.get('cookie'):
+            log('no saved cookie; waiting for first interactive login')
+            return
+        import datetime
+        import billing_server
+        expiry = car.sc.session_expiry(creds['cookie'])
+        if (billing_server.STORE.last_sync or {}).get('ok') and expiry is not None:
+            if (expiry - datetime.datetime.now()).total_seconds() > 86400:
+                log('saved web session is valid; no browser renewal needed')
+                return
         rc = car.renew(headless=True)
         log('cookie auto renew: rc=%s' % rc)
-    except Exception as e:
-        log('cookie auto renew skipped: %r' % e)
+    except Exception:
+        log('cookie auto renew unavailable; use explicit login if needed')
 
 
 def main():
@@ -184,38 +193,83 @@ def main():
 
     import billing_server
     import billing_widget as bw
+    if sys.platform == 'darwin':
+        import signal
+        import macos_widget
+        signal.signal(signal.SIGUSR1, lambda *_:
+                      threading.Thread(target=macos_widget.show_widget, daemon=True).start())
+    bw.URL_BASE = 'http://127.0.0.1:%d' % port
 
-    # 内嵌服务：端口空闲则起；已占用则视为可复用（旧实例 / 开发模式服务）
+    # A pre-existing listener is reusable only when its private capability validates.
     threading.Thread(target=billing_server.serve, args=(port,),
                      daemon=True, name='wb-server').start()
     if wait_server(port):
         log('server ready: http://127.0.0.1:%d' % port)
     else:
-        log('WARN: server not reachable at port %d after timeout' % port)
+        log('server authentication or startup failed on port %d' % port)
+        return 1
 
-    url = 'http://127.0.0.1:%d/' % port
-    log('opening widget window -> %s' % url)
+    url = billing_server.client_url(port, '/widget')
+    log('opening authenticated widget window')
     threading.Thread(target=_cookie_renew_worker, daemon=True, name='wb-cookie-renew').start()
     if '--tray-smoke' in argv:
         threading.Thread(target=_tray_smoke, daemon=True, name='wb-tray-smoke').start()
     code = bw.run_pywebview(url, 420, 450, None, None, False)
+    if '--tray-smoke' in argv and _SMOKE_FAILED:
+        code = 1
     log('widget window closed (exit=%s)' % code)
     return code
 
 
+_SMOKE_FAILED = False
+
+
 def _tray_smoke():
-    """托盘链路自测（--tray-smoke，2026-10-23）：起窗 8s 后自动走
-    隐藏 → 恢复 → 退出 全链路，日志序列可供脚本断言（不依赖真人点鼠标）。"""
+    """Exercise real window geometry, interaction hold, Pin and idle dismissal."""
+    global _SMOKE_FAILED
+    import billing_widget as bw
+    import webview
     time.sleep(8)
     try:
-        import billing_widget as bw
-        bw.toggle_widget()          # 隐藏 → 日志 tray: hide to tray
-        time.sleep(2)
-        bw.toggle_widget()          # 恢复 → 日志 tray: restore from tray
-        time.sleep(2)
-        bw.exit_via_tray()          # 退出 → 日志 exit via tray + tray loop exit
-    except Exception as e:
-        print('[smoke] failed %r' % e)
+        win = webview.windows[0]
+        api = bw.WidgetApi()
+        assert bw._tray.is_active(), 'status icon is missing'
+        assert not api.popup_state()['visible'], 'idle popover did not dismiss'
+        bw.show_widget()
+        time.sleep(0.5)
+        assert win.evaluate_js('Boolean(document.getElementById(\"btnPin\"))'), 'Pin control is missing'
+        api.popup_activity('pointer', True)
+        time.sleep(5.3)
+        assert api.popup_state()['visible'], 'interaction did not pause dismissal'
+        api.set_pinned(True)
+        api.popup_activity('pointer', False)
+        if sys.platform == 'darwin':
+            x0, y0 = bw._tray.window_position()
+            assert api.drag_begin(), 'pinned panel cannot drag'
+            api.drag_to(-40, 40)
+            time.sleep(0.3)
+            api.drag_end()
+            assert bw._tray.window_position() == (x0 - 40, y0 + 40), 'native drag failed'
+            api.resize_window(460, 500)
+            time.sleep(0.3)
+            assert (win.width, win.height) == (460, 500), 'native resize failed'
+        time.sleep(5.3)
+        assert api.popup_state()['visible'], 'pinned panel unexpectedly dismissed'
+        api.set_pinned(False)
+        time.sleep(0.3)
+        if sys.platform == 'darwin':
+            assert bw._tray.window_position()[1] == y0, 'unpin did not reanchor'
+        time.sleep(5.3)
+        assert not api.popup_state()['visible'], 'unpin did not restore dismissal'
+        if sys.platform == 'darwin':
+            assert not win.native.isVisible(), 'native window still visible'
+        log('smoke: anchored popup, Pin, hover hold, drag, resize and auto-hide passed')
+    except Exception as exc:
+        _SMOKE_FAILED = True
+        detail = str(exc) if isinstance(exc, AssertionError) else type(exc).__name__
+        log('smoke failed: %s' % detail)
+    finally:
+        bw.exit_via_tray()
 
 
 if __name__ == '__main__':
@@ -226,6 +280,6 @@ if __name__ == '__main__':
         sys.exit(main())
     except SystemExit:
         raise
-    except Exception:
-        log('FATAL:\n' + traceback.format_exc())
+    except Exception as exc:
+        log('FATAL: %s (details omitted to protect credentials)' % type(exc).__name__)
         sys.exit(1)

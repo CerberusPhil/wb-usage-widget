@@ -16,7 +16,7 @@ if not defined PY (
   if %errorlevel%==0 set "PY=python"
 )
 if not defined PY (
-  echo [ERROR] Python not found. Install Python 3.8+ or set WB_PY env var.
+  echo [ERROR] Python not found. Install Python 3.10+ or set WB_PY env var.
   pause
   exit /b 1
 )
@@ -25,9 +25,8 @@ echo [1/2] Syncing billing data from server (www.workbuddy.cn)...
 %PY% "%~dp0server_usage_sync.py"
 if errorlevel 1 (
   echo [WARN] Sync failed - login state may have expired. Rendering with existing cache.
-  echo        Fix: open & re-login the WorkBuddy desktop app (self-heals automatically).
-  echo        Fallback: F12-copy cookie from www.workbuddy.cn/profile/plans-usage
-  echo        into ~/.workbuddy/server_usage.json
+  echo        Fix: use Login / Reauthorize in the widget or tray menu.
+  echo        Credentials use OS-protected storage; do not paste them into JSON files.
 )
 
 echo [2/2] Rebuilding dashboard HTML...

@@ -1,3 +1,8 @@
-# 仅源码模式需要（exe 免安装，不需要任何依赖）
-# 打包实测于 pywebview 6.2.1（6.x 的 js_api 与拖拽链路已验证；5.x 未验证）
-pywebview>=6.0
+# 仅源码模式需要；Windows exe / macOS app 已内置 Python 和依赖。
+# 源码模式使用 Python >=3.10；macOS 使用 Cocoa / WebKit，不需要 Qt。
+pywebview>=6.2.1,<7
+certifi; sys_platform == "darwin"
+pyobjc-core>=10.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+pyobjc-framework-WebKit>=10.0; sys_platform == "darwin"
+pyobjc-framework-Quartz>=10.0; sys_platform == "darwin"

@@ -16,9 +16,9 @@ Workbuddy积分看板 · 系统托盘图标（纯 ctypes · 零第三方依赖�
     RegisterClassExW 撞 ERROR_CLASS_ALREADY_EXISTS 后旧回调引用悬空的问题
 
 对外 API：
-  start_tray(icon_path, tooltip, on_toggle, on_sync, on_full, on_exit) -> bool
+  start_tray(icon_path, tooltip, on_toggle, on_sync, on_full, on_exit, on_show, on_login) -> bool
       启动托盘线程并注册图标（最多等 3s）；返回 False = 创建失败（调用方自行降级）。
-      四个回调都在托盘线程内被调用，内部自行保证线程安全。
+      回调在托盘线程内被调用，内部自行保证线程安全。
   remove_tray()   摘除图标并结束托盘线程（幂等；跨线程安全，仅投递消息）
   is_active()     托盘是否在运行（线程活着且图标注册成功）
 
@@ -50,9 +50,11 @@ MF_STRING = 0x0
 TPM_RIGHTBUTTON, TPM_NONOTIFY, TPM_RETURNCMD = 0x2, 0x80, 0x100
 SWP_NOSIZE, SWP_NOMOVE, SWP_SHOWWINDOW = 0x1, 0x2, 0x40
 
-MENU_IDS = (1001, 1002, 1003, 1004)
-MENU_TEXT = {1001: '显示 / 隐藏', 1002: '立即同步', 1003: '打开完整版', 1004: '退出'}
-MENU_ACTION = {1001: 'on_toggle', 1002: 'on_sync', 1003: 'on_full', 1004: 'on_exit'}
+MENU_IDS = (1001, 1005, 1002, 1003, 1004)
+MENU_TEXT = {1001: '显示 / 隐藏面板', 1002: '立即同步', 1003: '打开完整版',
+             1004: '退出', 1005: '登录 / 重新授权'}
+MENU_ACTION = {1001: 'on_toggle', 1002: 'on_sync', 1003: 'on_full',
+               1004: 'on_exit', 1005: 'on_login'}
 
 # ---------------------------------------------------------------- 类型
 # wintypes 没有 LRESULT / GUID —— 自行补齐
@@ -112,6 +114,16 @@ class POINT(ctypes.Structure):
     _fields_ = [('x', wintypes.LONG), ('y', wintypes.LONG)]
 
 
+
+class NOTIFYICONIDENTIFIER(ctypes.Structure):
+    _fields_ = [('cbSize', wintypes.DWORD), ('hWnd', wintypes.HWND),
+                ('uID', wintypes.UINT), ('guidItem', _GUID)]
+
+
+class MONITORINFO(ctypes.Structure):
+    _fields_ = [('cbSize', wintypes.DWORD), ('rcMonitor', wintypes.RECT),
+                ('rcWork', wintypes.RECT), ('dwFlags', wintypes.DWORD)]
+
 # ---------------------------------------------------------------- 日志
 def _log(msg):
     """与 billing_widget.log / wb_widget_app.log 同文件同格式（不 import 对方，保持依赖单向）。"""
@@ -166,6 +178,10 @@ def _libs():
                                    wintypes.HWND, wintypes.LPVOID]
     u.GetCursorPos.restype = wintypes.BOOL
     u.GetCursorPos.argtypes = [ctypes.POINTER(POINT)]
+    u.WindowFromPoint.restype = wintypes.HWND
+    u.WindowFromPoint.argtypes = [POINT]
+    u.GetAncestor.restype = wintypes.HWND
+    u.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
     u.SetForegroundWindow.restype = wintypes.BOOL
     u.SetForegroundWindow.argtypes = [wintypes.HWND]
     u.RegisterWindowMessageW.restype = wintypes.UINT
@@ -178,6 +194,18 @@ def _libs():
 
     s.Shell_NotifyIconW.restype = wintypes.BOOL
     s.Shell_NotifyIconW.argtypes = [wintypes.DWORD, ctypes.POINTER(NOTIFYICONDATAW)]
+    s.Shell_NotifyIconGetRect.restype = ctypes.c_long
+    s.Shell_NotifyIconGetRect.argtypes = [ctypes.POINTER(NOTIFYICONIDENTIFIER),
+                                        ctypes.POINTER(wintypes.RECT)]
+    u.MonitorFromRect.restype = wintypes.HANDLE
+    u.MonitorFromRect.argtypes = [ctypes.POINTER(wintypes.RECT), wintypes.DWORD]
+    u.GetMonitorInfoW.restype = wintypes.BOOL
+    u.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MONITORINFO)]
+    u.GetWindowRect.restype = wintypes.BOOL
+    u.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    u.SetWindowPos.restype = wintypes.BOOL
+    u.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int,
+                              ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
 
     k.GetModuleHandleW.restype = wintypes.HINSTANCE
     k.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
@@ -190,7 +218,7 @@ def _libs():
 # hwnd/nid/hicon 只允许托盘线程写；remove_tray 只读 hwnd 投递消息 → 免锁
 _state = {
     'hwnd': None, 'nid': None, 'hicon': None, 'thread': None,
-    'wndproc_ref': None, 'wm_taskbarcreated': None,
+    'wndproc_ref': None, 'wm_taskbarcreated': None, 'wm_showpopup': None,
     'cb': {}, 'icon_path': '', 'tooltip': '',
     'added': False, 'error': '',
 }
@@ -200,6 +228,44 @@ _SEQ = [0]          # 托盘启动序号 → 唯一窗口类名
 def is_active():
     t = _state.get('thread')
     return bool(t and t.is_alive() and _state.get('added'))
+
+
+def window_hovered(hwnd):
+    u, _, _ = _libs()
+    point = POINT()
+    return bool(u.GetCursorPos(ctypes.byref(point)) and
+                u.GetAncestor(u.WindowFromPoint(point), 2) == hwnd)
+
+
+def place_window(hwnd):
+    """Use physical pixels throughout, including mixed-DPI and negative-origin monitors."""
+    from popup_controller import anchored_position
+    u, s, _ = _libs()
+    nid = _state.get('nid')
+    if not nid:
+        return False
+    identity = NOTIFYICONIDENTIFIER()
+    identity.cbSize = ctypes.sizeof(identity)
+    identity.hWnd, identity.uID = nid.hWnd, nid.uID
+    anchor, window = wintypes.RECT(), wintypes.RECT()
+    found = s.Shell_NotifyIconGetRect(ctypes.byref(identity), ctypes.byref(anchor)) == 0
+    if not found:
+        # Overflow/hidden icons may have no rectangle. Use the clicked monitor,
+        # not the primary display; still keep a reachable panel inside its work area.
+        cursor = POINT()
+        if not u.GetCursorPos(ctypes.byref(cursor)):
+            return False
+        anchor = wintypes.RECT(cursor.x, cursor.y, cursor.x + 1, cursor.y + 1)
+    monitor = u.MonitorFromRect(ctypes.byref(anchor), 2)
+    info = MONITORINFO()
+    info.cbSize = ctypes.sizeof(info)
+    if not u.GetMonitorInfoW(monitor, ctypes.byref(info)) or not u.GetWindowRect(hwnd, ctypes.byref(window)):
+        return False
+    rect = lambda r: (r.left, r.top, r.right, r.bottom)
+    width = min(window.right - window.left, info.rcWork.right - info.rcWork.left)
+    height = min(window.bottom - window.top, info.rcWork.bottom - info.rcWork.top)
+    x, y = anchored_position(rect(anchor), rect(info.rcWork), (width, height))
+    return bool(u.SetWindowPos(hwnd, None, x, y, width, height, 0x4 | 0x10))
 
 
 # ---------------------------------------------------------------- 图标注册
@@ -227,10 +293,15 @@ def _fire(name):
     fn = (_state.get('cb') or {}).get(name)
     if not fn:
         return
-    try:
-        fn()
-    except Exception as e:
-        _log('tray callback %s failed: %r' % (name, e))
+    def invoke():
+        try:
+            fn()
+        except Exception:
+            _log('tray callback %s failed' % name)
+    if name in ('on_sync', 'on_full', 'on_login'):
+        threading.Thread(target=invoke, daemon=True).start()
+    else:
+        invoke()
 
 
 def _dispatch(hwnd, msg, wparam, lparam):
@@ -240,6 +311,9 @@ def _dispatch(hwnd, msg, wparam, lparam):
             _fire('on_toggle')
         elif lparam == WM_RBUTTONUP:
             _show_menu(hwnd)
+        return 0
+    if msg == _state.get('wm_showpopup'):
+        _fire('on_show')
         return 0
     if msg == _state.get('wm_taskbarcreated'):
         # Explorer 重启广播 → 重新注册图标（NIM_ADD 幂等）
@@ -316,6 +390,7 @@ def _thread_init_and_loop():
         raise OSError('CreateWindowExW failed err=%d' % ctypes.get_last_error())
     _state['hwnd'] = hwnd
     _state['wm_taskbarcreated'] = u.RegisterWindowMessageW('TaskbarCreated')
+    _state['wm_showpopup'] = u.RegisterWindowMessageW('WBCreditWidget_ShowPopup')
 
     # 图标：默认尺寸 → 16x16 重试 → 仍失败则纯行为图标（无图但可点，功能不挂）
     hicon = u.LoadImageW(None, _state['icon_path'], IMAGE_ICON, 0, 0,
@@ -351,7 +426,7 @@ def _thread_init_and_loop():
 
 
 # ---------------------------------------------------------------- 对外 API
-def start_tray(icon_path, tooltip, on_toggle, on_sync, on_full, on_exit):
+def start_tray(icon_path, tooltip, on_toggle, on_sync, on_full, on_exit, on_show, on_login):
     """启动托盘线程并注册图标（最多等 3s）。返回 False = 失败（调用方降级）。"""
     if not sys.platform.startswith('win'):
         return False
@@ -361,7 +436,8 @@ def start_tray(icon_path, tooltip, on_toggle, on_sync, on_full, on_exit):
                    'wm_taskbarcreated': None, 'added': False, 'error': '',
                    'icon_path': icon_path or '', 'tooltip': tooltip or '',
                    'cb': {'on_toggle': on_toggle, 'on_sync': on_sync,
-                          'on_full': on_full, 'on_exit': on_exit}})
+                          'on_full': on_full, 'on_exit': on_exit,
+                          'on_show': on_show, 'on_login': on_login}})
     ev = threading.Event()
     t = threading.Thread(target=_thread_main, args=(ev,), daemon=True, name='wb-tray')
     _state['thread'] = t

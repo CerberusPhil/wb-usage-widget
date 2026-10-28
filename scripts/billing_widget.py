@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Workbuddy积分看板 · 桌面壳（pywebview，缺则 Edge --app 降级）
+Workbuddy 积分看板 · 原生状态栏弹窗（pywebview；缺失时用系统浏览器）
 =============================================================
 依赖：本机 8790 上的 billing_server.py 必须先跑起来（start_billing_widget.bat 会先起它）。
 
 用法：
-  python billing_widget.py                  # 默认 420x450，桌面右下角，置顶，可拖拽
-  python billing_widget.py --x 20 --y 40    # 指定位置
+  python billing_widget.py                  # 默认 420x450，锚定托盘，闲置 5 秒收起
+  python billing_widget.py --x 20 --y 40    # 无托盘时的初始位置；正常弹出跟随托盘
   python billing_widget.py --w 520 --h 700  # 指定尺寸
   python billing_widget.py --transparent    # 实验：透明背景（Win11 有已知鼠标事件问题，默认关）
-  python billing_widget.py --fallback       # 强制 Edge/Chrome --app 模式（无置顶）
+  python billing_widget.py --fallback       # 强制系统浏览器模式（无原生窗口按钮）
 
-交互（页内按钮，2026-09-21；拖拽/点击手势当日二次重构）：
-  - 任意卡片/空白处拖动：移动窗口（自实现指针拖拽：位移越过 4px 阈值才启用鼠标捕获并开拖，
-    纯点击不被打断；drag_begin/drag_to/drag_end → SetWindowPos）
+交互：
+  - Pin 固定后可拖动面板和边缘缩放；取消固定重新锚定托盘并恢复自动收起。
   - 页头 −  收进系统托盘（隐藏窗口 + 通知区域图标；左键点托盘图标恢复，右键菜单：
             显示/隐藏、立即同步、打开完整版、退出 —— tray_icon.py，v1.10.0）
   - 页头 ✕  退出程序（先摘托盘图标再毁窗；exe 模式下 8790 同步服务随之停止，
@@ -25,13 +24,12 @@ Workbuddy积分看板 · 桌面壳（pywebview，缺则 Edge --app 降级）
   - 窗口/任务栏图标：scripts\\widget_icon.ico（换图：替换该文件即可，改路径见 ICON_FILE）
 已知边界（2025-2026 调研）：
   - pywebview 透明窗口在 Win11 24H2 有鼠标事件历史问题 → 默认不透明卡片式（更稳、也像小组件卡片）
-  - Edge --app 降级无置顶：可配 PowerToys 的 Always On Top（Win+Ctrl+T）；降级模式下页内按钮不可用
+  - 系统浏览器降级不提供置顶、Pin、原生关闭/最小化或拖动缩放。
 """
 import ctypes
 import os
 import sys
 import argparse
-import subprocess
 import time
 
 URL_BASE = 'http://127.0.0.1:8790'
@@ -41,14 +39,35 @@ if getattr(sys, 'frozen', False):            # PyInstaller onefile：数据文�
     SCRIPT_DIR = getattr(sys, '_MEIPASS', SCRIPT_DIR)
 ICON_FILE = os.path.join(SCRIPT_DIR, 'widget_icon.ico')
 import atexit
-import tray_icon as _tray        # 系统托盘（纯 ctypes，零第三方依赖；v1.10.0）
+if sys.platform == 'darwin':
+    import macos_widget as _tray
+else:
+    import tray_icon as _tray
 atexit.register(_tray.remove_tray)   # 兜底：任何退出路径都把托盘图标摘干净
-BROWSERS = [
-    r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-    r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
-    r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-    r'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-]
+_popup = None
+
+
+def popup_state():
+    if sys.platform == 'darwin':
+        return _tray.popup_state()
+    return _popup.state() if _popup else {'visible': False, 'pinned': False}
+
+
+def show_widget():
+    if sys.platform == 'darwin':
+        _tray.show_widget()
+    elif _popup:
+        _popup.show()
+
+
+def login_via_tray():
+    try:
+        from billing_server import local_request
+        from urllib.parse import urlsplit
+        local_request(urlsplit(URL_BASE).port, '/api/login', method='POST')
+        show_widget()
+    except Exception:
+        log('tray: login request failed')
 
 
 def log(msg):
@@ -59,7 +78,8 @@ def log(msg):
     """
     line = '[%s] %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), msg)
     try:
-        base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+        base = (os.path.expanduser('~/Library/Logs') if sys.platform == 'darwin'
+                else os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'))
         d = os.path.join(base, 'WBCreditWidget')
         os.makedirs(d, exist_ok=True)
         with open(os.path.join(d, 'widget.log'), 'a', encoding='utf-8') as f:
@@ -74,18 +94,14 @@ def log(msg):
 
 def server_up(timeout=1.5):
     try:
-        import urllib.request
-        urllib.request.urlopen(URL_BASE + '/api/data', timeout=timeout)
+        from billing_server import local_request
+        from urllib.parse import urlsplit
+        local_request(urlsplit(URL_BASE).port, '/api/data')
         return True
     except Exception:
         return False
 
 
-def find_browser():
-    for p in BROWSERS:
-        if os.path.exists(p):
-            return p
-    return None
 
 
 def default_pos(w, h):
@@ -265,8 +281,39 @@ def apply_icon():
 class WidgetApi:
     """JS → Python 桥：窗口控制（关闭 / 最小化 / 缩放）。"""
 
+    def popup_state(self):
+        return popup_state()
+
+    def set_pinned(self, value):
+        if not isinstance(value, bool):
+            return popup_state()
+        if sys.platform == 'darwin':
+            return _tray.set_pinned(value)
+        return _popup.set_pinned(value) if _popup else popup_state()
+
+    def popup_activity(self, kind='pulse', active=False):
+        if kind not in ('pointer', 'input', 'pulse') or not isinstance(active, bool):
+            return False
+        if sys.platform == 'darwin':
+            return _tray.popup_activity(kind, active)
+        return _popup.activity(kind, active) if _popup else False
+
     def close_widget(self):
         """✕：真退出。先摘托盘图标再毁窗（毁窗后进程收尾，来不及 NIM_DELETE）。"""
+        if sys.platform == 'darwin':
+            import threading
+            from PyObjCTools import AppHelper
+            caller = threading.current_thread()
+            if caller is not threading.main_thread():
+                # pywebview's non-daemon bridge must finish its JS reply before
+                # Cocoa stops the event loop, or its evaluate_js waits forever.
+                def close_after_reply():
+                    caller.join()
+                    AppHelper.callAfter(self.close_widget)
+                threading.Thread(target=close_after_reply, daemon=True).start()
+                return True
+        if _popup:
+            _popup.close()
         try:
             _tray.remove_tray()
         except Exception:
@@ -282,12 +329,15 @@ class WidgetApi:
     def minimize_widget(self):
         """「—」：托盘可用 → 隐藏窗口收进托盘（左键托盘图标恢复）；
         托盘不可用（创建失败/非 Windows）→ 降级为原「最小化到任务栏」，JS 无感。"""
+        if sys.platform == 'darwin':
+            return _tray.hide_widget()
+        if _popup and _tray.is_active():
+            return _popup.hide()
         try:
             if _tray.is_active():
                 hwnd = _hwnd(timeout=1.5)
-                if hwnd and _win_hide(hwnd):
-                    log('tray: hide to tray (btnMin)')
-                    return True
+                if hwnd:
+                    return _win_hide(hwnd)
         except Exception:
             pass
         try:
@@ -308,13 +358,21 @@ class WidgetApi:
         return False
 
     def open_url(self, url):
-        """用系统默认浏览器打开链接（余额卡 → 成长计划、「完整版」按钮等）。"""
+        """Only fixed local views and official HTTPS pages may leave the WebView."""
         try:
+            from urllib.parse import urlsplit
+            from desktop_browser import open_browser
+            from billing_server import client_url
             url = str(url)
-            if not url.lower().startswith(('http://', 'https://')):
-                return False
-            import webbrowser
-            webbrowser.open(url)
+            if url == URL_BASE + '/full':
+                url = client_url(urlsplit(URL_BASE).port, '/full')
+            else:
+                parsed = urlsplit(url)
+                if (parsed.scheme != 'https' or parsed.netloc not in
+                        ('www.workbuddy.cn', 'workbuddy.cn', 'www.codebuddy.cn', 'codebuddy.cn')
+                        or parsed.username or parsed.password):
+                    return False
+            open_browser(url)
             return True
         except Exception:
             return False
@@ -345,13 +403,16 @@ class WidgetApi:
         return False
 
     # ---------- 整窗拖拽（自实现，替代 pywebview easy_drag） ----------
-    def dbg(self, m):
-        """JS 侧诊断探针（拖拽排障用，轻量、留作常备）。"""
-        log('DBG js: %s' % m)
-        return True
 
     def drag_begin(self):
         """记录窗口基点与 DPI 缩放（后续按增量移动）。"""
+        self._drag = None
+        if not popup_state()['pinned']:
+            return False
+        if sys.platform == 'darwin':
+            x, y = _tray.window_position()
+            self._drag = {'x0': x, 'y0': y}
+            return True
         try:
             u = _user32()
             hwnd = _hwnd(timeout=1.5)
@@ -389,6 +450,9 @@ class WidgetApi:
         if not d:
             log('DBG drag_to: no _drag state (drag_begin 未先行成功)')
             return False
+        if sys.platform == 'darwin':
+            _tray.move_window(int(d['x0'] + float(dx)), int(d['y0'] + float(dy)))
+            return True
         try:
             u = _user32()
             SWP_NOSIZE, SWP_NOZORDER, SWP_NOACTIVATE = 0x0001, 0x0004, 0x0010
@@ -453,48 +517,40 @@ def _win_show(hwnd):
 
 
 def toggle_widget():
-    """托盘左键 / 菜单「显示 / 隐藏」：可见性以 IsWindowVisible 实时查询为唯一真相（免锁）。"""
-    hwnd = _hwnd(timeout=2.0)
-    if not hwnd:
-        log('tray toggle: hwnd NOT FOUND')
-        return
-    if _user32().IsWindowVisible(hwnd):
-        _win_hide(hwnd)
-        log('tray: hide to tray')
-    else:
-        _win_show(hwnd)
-        log('tray: restore from tray')
+    """Toggle the shared transient/pinned lifecycle from the native status icon."""
+    if sys.platform == 'darwin':
+        _tray.toggle_widget()
+    elif _popup:
+        _popup.toggle()
 
 
 def sync_now_via_tray():
-    """托盘「立即同步」：走 8790 的 /api/sync（服务端 daemon 线程执行，立即返回）。"""
+    """Request an authenticated background sync without putting capabilities in URLs."""
     try:
-        import urllib.request
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # 直连，防系统代理劫持 127.0.0.1
-        opener.open(URL_BASE + '/api/sync', timeout=3).read()
+        from billing_server import local_request
+        from urllib.parse import urlsplit
+        local_request(urlsplit(URL_BASE).port, '/api/sync', method='POST')
         log('tray: sync triggered')
-    except Exception as e:
-        log('tray: sync failed %r' % e)
+    except Exception:
+        log('tray: sync request failed')
 
 
 def open_full_via_tray():
-    """托盘「打开完整版」：系统默认浏览器打开 /full。"""
+    """Mint a short-lived bootstrap ticket for the external browser's own cookie jar."""
     try:
-        os.startfile(URL_BASE + '/full')
-        log('tray: open full')
-        return
+        from desktop_browser import open_browser
+        from urllib.parse import urlsplit
+        from billing_server import client_url
+        open_browser(client_url(urlsplit(URL_BASE).port, '/full'))
+        log('tray: opened full dashboard')
     except Exception:
-        pass
-    try:
-        import webbrowser
-        webbrowser.open(URL_BASE + '/full')
-        log('tray: open full (webbrowser)')
-    except Exception as e:
-        log('tray: open full failed %r' % e)
+        log('tray: open full failed')
 
 
 def exit_via_tray():
     """托盘「退出」：先摘图标再毁窗（顺序不可反——毁窗后进程收尾，来不及 NIM_DELETE）。"""
+    if _popup:
+        _popup.close()
     try:
         _tray.remove_tray()
     except Exception:
@@ -511,26 +567,20 @@ def exit_via_tray():
         pass
 
 
-def run_fallback(url, w, h, x, y):
-    b = find_browser()
-    if not b:
-        print('[widget] no Edge/Chrome found, cannot fallback.')
-        return 1
-    cmd = [b, '--app=' + url, '--window-size=%d,%d' % (w, h),
-           '--disable-features=Translate,msTranslate']
-    if x is not None and y is not None:
-        cmd.append('--window-position=%d,%d' % (x, y))
-    subprocess.Popen(cmd)
-    print('[widget] fallback (browser app mode): ' + b)
-    print('[widget] note: no always-on-top in fallback; use PowerToys AlwaysOnTop (Win+Ctrl+T)')
+def run_fallback(url):
+    from desktop_browser import open_browser
+    open_browser(url)
+    print('[widget] opened browser view; native Pin/window controls require pywebview')
     return 0
 
 
 def run_pywebview(url, w, h, x, y, transparent):
+    if sys.platform == 'darwin':
+        return _tray.run(url, w, h, x, y, transparent, WidgetApi())
     import webview
     if x is None or y is None:
         x, y = default_pos(w, h)
-    kw = dict(title=TITLE, url=url, width=w, height=h,
+    kw = dict(title=TITLE, url=url, width=w, height=h, hidden=True,
               frameless=True, easy_drag=False, draggable=False, on_top=True,
               js_api=WidgetApi(), min_size=(350, 340))
     if transparent:
@@ -544,14 +594,33 @@ def run_pywebview(url, w, h, x, y, transparent):
     try:
         ok = _tray.start_tray(ICON_FILE, TITLE,
                               on_toggle=toggle_widget, on_sync=sync_now_via_tray,
-                              on_full=open_full_via_tray, on_exit=exit_via_tray)
+                              on_full=open_full_via_tray, on_exit=exit_via_tray,
+                              on_show=show_widget, on_login=login_via_tray)
         log('tray %s' % ('ready' if ok else 'init failed (%s); minimize falls back to taskbar'
                          % (_tray._state.get('error') or 'unknown')))
     except Exception as e:
         log('tray init error %r' % e)
     # 图标双通道：① start(icon=) 原生设 Form.Icon（winforms 后端实际支持）；
     #            ② apply_icon 线程用 WM_SETICON 兜底（防原生通道失效）
-    webview.start(apply_icon, icon=ICON_FILE)
+    def ready():
+        global _popup
+        from popup_controller import PopupController
+        win.events.loaded.wait()
+        apply_icon()
+        hwnd = _hwnd(timeout=2.0)
+        from System import Action
+        def dispatch(fn):
+            win.native.BeginInvoke(Action(fn))
+        _popup = PopupController(lambda: _win_show(hwnd), lambda: _win_hide(hwnd),
+                                 lambda: _tray.place_window(hwnd), dispatch,
+                                 hovered=lambda: _tray.window_hovered(hwnd))
+        if not _tray.is_active():
+            # Never auto-hide when no reachable status icon was registered.
+            _popup.set_pinned(True)
+        _popup.show()
+    webview.start(ready, icon=ICON_FILE, private_mode=True)
+    if _popup:
+        _popup.close()
     try:
         _tray.remove_tray()       # 窗口被外部途径关闭（如任务管理器关窗）时兜底摘图标（幂等）
     except Exception:
@@ -566,23 +635,25 @@ def main():
     ap.add_argument('--x', type=int, default=None)
     ap.add_argument('--y', type=int, default=None)
     ap.add_argument('--transparent', action='store_true', help='experimental: transparent background')
-    ap.add_argument('--fallback', action='store_true', help='force browser --app mode')
+    ap.add_argument('--fallback', action='store_true', help='force system browser mode')
     a = ap.parse_args()
 
-    url = URL_BASE + '/'
+    from billing_server import client_url
+    from urllib.parse import urlsplit
     if not server_up():
         print('[widget] billing server is NOT running at %s' % URL_BASE)
         print('[widget] start it first:  scripts\\start_billing_widget.bat')
         return 2
+    url = client_url(urlsplit(URL_BASE).port, '/widget')
 
     if not a.fallback:
         try:
             import webview  # noqa: F401
         except Exception as e:
             print('[widget] pywebview unavailable (%s) -> fallback' % e)
-            return run_fallback(url, a.w, a.h, a.x, a.y)
+            return run_fallback(url)
         return run_pywebview(url, a.w, a.h, a.x, a.y, a.transparent)
-    return run_fallback(url, a.w, a.h, a.x, a.y)
+    return run_fallback(url)
 
 
 if __name__ == '__main__':

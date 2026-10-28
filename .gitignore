@@ -2,7 +2,20 @@ __pycache__/
 *.pyc
 *.log
 build/
+.venv/
+.DS_Store
 
-# exe / zip 不进仓库：仅随 GitHub Releases 分发（避免每版 18MB 的 exe 撑大仓库体积）
-dist/*.exe
+# Generated distributions stay local; source instructions live in packaging/.
+dist/
 *.zip
+
+# Never publish account data or local authorization capabilities.
+.workbuddy/
+**/edge_cookie_profile/
+**/browser_cookie_profile/
+server_usage*.json
+*.dpapi
+*.cap
+.env
+.env.local
+billing_dashboard.html

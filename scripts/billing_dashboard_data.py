@@ -28,6 +28,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from collections import defaultdict
+from local_http_security import script_json
 
 HOME_WB = os.path.expanduser('~') + '/.workbuddy'
 CACHE = os.environ.get('WB_SERVER_USAGE_CACHE') or os.path.join(HOME_WB, 'server_usage_cache.json')
@@ -53,8 +54,8 @@ def _token_data():
         d = token_sessions.build_token_data()
         d['ok'] = True
         return d
-    except Exception as e:
-        return {'ok': False, 'sessions': [], 'stats': {'error': str(e)},
+    except Exception:
+        return {'ok': False, 'sessions': [], 'stats': {'error': '本机会话不可读'},
                 'crids': set(), 'act_min': set()}
 
 
@@ -271,7 +272,7 @@ def main():
 
     with open(TEMPLATE, encoding='utf-8') as f:
         tpl = f.read()
-    html = tpl.replace('/*__DATA__*/', json.dumps(data, ensure_ascii=False))
+    html = tpl.replace('/*__DATA__*/', script_json(data))
     with open(OUT_HTML, 'w', encoding='utf-8') as f:
         f.write(html)
 

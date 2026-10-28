@@ -156,8 +156,8 @@
       <button class="tb" data-t="wb" title="WorkBuddy"></button>
       <button class="tb" data-t="eva01" title="EVA-01"></button>
       <button class="tb" data-t="eva02" title="EVA-02"></button>
-      <button class="hbtn" id="btnMin" title="收起到系统托盘（点任务栏时钟旁的托盘图标恢复）">−</button>
-      <button class="hbtn" id="btnClose" title="退出挂件（exe 模式下同步服务随之停止）">✕</button>
+      <button class="hbtn" id="btnMin" title="收起到菜单栏 / 系统托盘（从 WB 菜单恢复）">−</button>
+      <button class="hbtn" id="btnClose" title="退出挂件（应用内的同步服务随之停止）">✕</button>
     </span>
   </div>
 
@@ -186,6 +186,8 @@
     <div class="blk-head"><span class="lbl">今日会话消耗</span><span class="rng" id="mRng"></span></div>
     <div class="mrows" id="mrows"></div>
   </div>
+
+  <!--__LOGIN_PANEL__-->
 
   <div class="ft">
     <span class="status"><span class="dot" id="stDot"></span><span id="stTxt">加载中…</span></span>
@@ -311,9 +313,22 @@ function dragResize(mode, ev){
 (function(){
   let pending = null;                                  // 按下候选（未越阈值）：{id, sx, sy}
   let dragging = false, dragId = -1, moved = false, sx = 0, sy = 0, lastT = 0;
+  let bridgeQueue=Promise.resolve(), latestMove=null, moveQueued=false, settling=false;
+  function send(method,args=[]){
+    bridgeQueue=bridgeQueue.then(()=>window.pywebview.api[method](...args)).catch(()=>{});
+  }
+  function sendMove(x,y){
+    latestMove=[x,y];
+    if(moveQueued)return;
+    moveQueued=true;
+    bridgeQueue=bridgeQueue.then(async()=>{
+      while(latestMove){const point=latestMove;latestMove=null;await window.pywebview.api.drag_to(...point);}
+    }).catch(()=>{latestMove=null;}).finally(()=>{moveQueued=false;});
+  }
   function begin(e){
     moved = false;
-    if(e.button !== 0 || dragging) return;
+    if(e.button !== 0 || dragging || settling) return;
+    if(document.body.dataset.pinned !== 'true') return;
     if(e.target.closest('button, .rz, input, select, textarea')) return;   // 控件与缩放热区：不拖窗
     if(!(window.pywebview && window.pywebview.api && window.pywebview.api.drag_begin)) return;
     pending = { id: e.pointerId, sx: e.screenX, sy: e.screenY };
@@ -324,7 +339,7 @@ function dragResize(mode, ev){
       const now = performance.now();
       if(now - lastT < 16) return;
       lastT = now;
-      try{ window.pywebview.api.drag_to(e.screenX - sx, e.screenY - sy); }catch(err){}
+      sendMove(e.screenX - sx, e.screenY - sy);
       return;
     }
     if(!pending || e.pointerId !== pending.id) return;
@@ -333,8 +348,8 @@ function dragResize(mode, ev){
     dragging = true; moved = true; dragId = pending.id;
     sx = pending.sx; sy = pending.sy; lastT = 0; pending = null;
     try{ $('#app').setPointerCapture(dragId); }catch(err){}
-    try{ window.pywebview.api.drag_begin(); }catch(err){}
-    try{ window.pywebview.api.drag_to(dx, dy); }catch(err){}
+    send('drag_begin');
+    sendMove(dx,dy);
     document.body.style.cursor = 'grabbing';
   }
   function end(e){
@@ -342,7 +357,10 @@ function dragResize(mode, ev){
     if(dragging){
       dragging = false;
       document.body.style.cursor = '';
-      try{ window.pywebview.api.drag_end(); }catch(err){}
+      if(e)sendMove(e.screenX - sx,e.screenY - sy);
+      send('drag_end');
+      settling=true;
+      bridgeQueue.finally(()=>{settling=false;});
       setTimeout(()=>{ moved = false; }, 350);         // 兜底：拖后未派发 click 的场合
     }
     pending = null;
@@ -465,7 +483,7 @@ $('#cardMonth').onclick = ()=>setCardMetric(cardMetric === 'credit' ? 'token' : 
 function render(d, animate){
   if(!d || d.ok === false){
     $('#stDot').className = 'dot err';
-    $('#stTxt').textContent = '暂无数据（请先运行 server_usage_sync.py）';
+    $('#stTxt').textContent = '暂无数据，请登录 / 重新授权';
     return;
   }
   LAST = d;
@@ -523,7 +541,7 @@ function render(d, animate){
 function renderTodaySessions(d, animate){
   const genDay = (d.generated_at || '').slice(0,10);
   const dd = ((d.session_days || {})[genDay]) || {};
-  const idx = {};
+  const idx = Object.create(null);
   (d.sessions || []).forEach(s=>{ idx[s.sid] = s; });
   const all = Object.keys(dd).map(sid=>{
     const v = dd[sid] || {}, meta = idx[sid] || {};
@@ -543,7 +561,7 @@ function renderTodaySessions(d, animate){
       <span class="mname">${esc(title)}</span>
       <span class="mtrack"><i class="mfill" data-w="${pct}"></i></span>
       <span class="mval num">${fmtTok(r.tokens)}</span>
-      <span class="mn">${r.n}次</span>
+      <span class="mn">${esc(r.n)}次</span>
     </div>`;
   }).join('');
   const setW = ()=>{ el.querySelectorAll('.mfill').forEach(f=>{ f.style.width = f.dataset.w + '%'; }); };
@@ -621,7 +639,7 @@ $('#btnFull').addEventListener('click', e=>{
 $('#btnSync').onclick = ()=>{
   const btn = $('#btnSync');
   btn.textContent = '… 同步中';
-  fetch('/api/sync').then(r=>r.json()).then(()=>{
+  fetch('/api/sync',{method:'POST'}).then(r=>r.json()).then(()=>{
     /* 同步完成即刻渲染（1s 轮询，最长 30s）——替代旧版写死 6s 的固定等待 */
     let waited = 0;
     const poll = ()=>{

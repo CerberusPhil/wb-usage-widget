@@ -34,7 +34,8 @@ def cb(name):
 
 
 def start():
-    ok = ti.start_tray(ICON, 'WB tray probe', cb('toggle'), cb('sync'), cb('full'), cb('exit'))
+    ok = ti.start_tray(ICON, 'WB tray probe', cb('toggle'), cb('sync'), cb('full'),
+                      cb('exit'), cb('show'), cb('login'))
     time.sleep(0.3)
     return ok
 

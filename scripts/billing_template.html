@@ -379,6 +379,7 @@
   <span class="theme-label">FONT</span>
   <span class="fsctl"><button class="fbtn" id="fsDown" onclick="fsStep(-1)" title="缩小字号">A&#8722;</button><span class="fsval num" id="fsVal">110%</span><button class="fbtn" id="fsUp" onclick="fsStep(1)" title="放大字号">A+</button></span>
 </header>
+  <!--__LOGIN_PANEL__-->
 <div class="hazard"></div>
 
 <section class="cards" id="cards"></section>
@@ -449,7 +450,7 @@ const $ = s => document.querySelector(s);
 const BALANCE_URL = 'https://www.workbuddy.cn/profile/growth-center';
 
 /* ---------- 工具 ---------- */
-function fmt(n){ return n.toLocaleString('zh-CN'); }
+function fmt(n){ return Number(n).toLocaleString('zh-CN'); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* 刷新数据 = 先触发一次账单同步（与挂件「⟳ 同步」同链路），同步完成即重载出最新视图。
@@ -462,7 +463,7 @@ function syncThenReload(btn){
   btn.innerHTML = '&#8987; 同步中…';
   let done = false;
   const finish = () => { if(!done){ done = true; location.reload(); } };
-  fetch('/api/sync').then(r => r.json()).then(() => {
+  fetch('/api/sync',{method:'POST'}).then(r => r.json()).then(() => {
     let waited = 0;
     const poll = () => {
       fetch('/api/data').then(r => r.json()).then(d => {
@@ -610,7 +611,7 @@ function renderCards(){
         <div class="label">积分余额 · 点击查看成长计划</div>
         <div class="value num"><span id="vBal">0.00</span><span class="unit">积分</span></div>
         <div class="progress"><i style="width:${pct.toFixed(1)}%"></i></div>
-        <div class="note">账户合计 · ${b.pkg_n} 个资源包 · 已用 ${b.used.toFixed(2)} / 总量 ${b.total.toFixed(2)}</div>
+        <div class="note">账户合计 · ${esc(b.pkg_n)} 个资源包 · 已用 ${b.used.toFixed(2)} / 总量 ${b.total.toFixed(2)}</div>
       </a>`;
   } else {
     balCard = `
@@ -622,17 +623,17 @@ function renderCards(){
       </div>`;
   }
   $('#cards').innerHTML = `
-    <div class="magi-card flipable" onclick="flipCardMetric()" title="${todayTip}">
+    <div class="magi-card flipable" onclick="flipCardMetric()" title="${esc(todayTip)}">
       <div class="magi-tag">MELCHIOR-1</div>
       <div class="pattern p-gray">TODAY</div>
-      <div class="label">今日消耗（${genDay}）</div>
+      <div class="label">今日消耗（${esc(genDay)}）</div>
       <div class="value num"><span id="vToday">0</span><span class="unit">${unitTxt}</span></div>
       ${tokMode ? splitToday : ''}
     </div>
-    <div class="magi-card flipable" onclick="flipCardMetric()" title="${monthTip}">
+    <div class="magi-card flipable" onclick="flipCardMetric()" title="${esc(monthTip)}">
       <div class="magi-tag">BALTHASAR-2</div>
       <div class="pattern p-gray">MONTH</div>
-      <div class="label">本月消耗（${monthKey}）</div>
+      <div class="label">本月消耗（${esc(monthKey)}）</div>
       <div class="value num"><span id="vMonth">0</span><span class="unit">${unitTxt}</span></div>
       ${tokMode ? splitMonth : ''}
     </div>
@@ -660,7 +661,7 @@ function balancePkgsHtml(b){
       <td class="r num">${p.used.toFixed(2)}</td>
       <td class="r num">${p.total.toFixed(2)}</td></tr>`;
   }).join('');
-  return `<details class="moreinfo mi-inline bd-pkgs"><summary>&#9432; 资源包明细（${b.pkg_n} 个 · 合计剩余 ${b.remain.toFixed(2)}）</summary>
+  return `<details class="moreinfo mi-inline bd-pkgs"><summary>&#9432; 资源包明细（${esc(b.pkg_n)} 个 · 合计剩余 ${b.remain.toFixed(2)}）</summary>
     <div class="mi-body"><table class="pkgtbl">
       <tr><th>资源包</th><th class="r">剩余</th><th class="r">已用</th><th class="r">总量</th></tr>${rows}</table>
       <div class="note" style="color:var(--faint);margin-top:6px">余额为全部资源包「剩余」之和（与官网成长计划页同口径）；粗体行 = 仍有余额的包。每月1号到账的包也会并入此处。</div></div></details>`;
@@ -802,7 +803,7 @@ function showTip(e, dk){
     if(td0.tf) html += `<div class="mrow"><span>　· 免费/未计费</span><span class="mv num">${fmtTok(td0.tf)}</span></div>`;
     if(td0.te) html += `<div class="mrow"><span>　· 外部 API</span><span class="mv num">${fmtTok(td0.te)}</span></div>`;
   }
-  html += `<div class="mrow"><span>请求 / 免费</span><span class="mv num">${rec.req_n} / ${rec.free_n}</span></div>`;
+  html += `<div class="mrow"><span>请求 / 免费</span><span class="mv num">${esc(rec.req_n)} / ${esc(rec.free_n)}</span></div>`;
   if(rec.other_credit) html += `<div class="mrow"><span>本机 / 其他端</span><span class="mv num">${(rec.local_credit||0).toFixed(2)} / ${rec.other_credit.toFixed(2)}</span></div>`;
   const ms = Object.entries(rec.by_model||{}).filter(x=>x[1]>0);
   ms.slice(0,4).forEach(([m,v])=>{ html += `<div class="mrow"><span>${esc(m)}</span><span class="mv num">${v.toFixed(2)}</span></div>`; });
@@ -829,7 +830,7 @@ function dayOptionsHtml(){
   return dayList.slice().reverse().map(k=>{
     const rec = DAYS[k] || {};
     const wd = WD[new Date(k.replace(/-/g,'/')).getDay()].slice(1);
-    return `<option value="${k}" ${k===selected?'selected':''}>${k.slice(5).replace('-','/')} ${wd} · ${(rec.credit||0).toFixed(2)}</option>`;
+    return `<option value="${esc(k)}" ${k===selected?'selected':''}>${esc(k.slice(5).replace('-','/'))} ${wd} · ${(rec.credit||0).toFixed(2)}</option>`;
   }).join('');
 }
 /* 统一日期入口：详单 + 日历高亮 一起联动 */
@@ -878,7 +879,7 @@ function renderDetail(dk){
     const free = r.credit === 0;
     const creditCell = free ? '<span class="free-tag">FREE</span>' : r.credit.toFixed(2);
     return `<tr class="${free?'free-row':''}">
-      <td class="num">${r.t}</td>
+      <td class="num">${esc(r.t)}</td>
       <td><span class="model-tag">${esc(r.model)}</span></td>
       <td class="r num">${creditCell}</td>
       <td>${esc(r.client)}</td>
@@ -887,7 +888,7 @@ function renderDetail(dk){
   const lc = rec.local_credit || 0, oc = rec.other_credit || 0;
   const sumTxt = `共 ${rec.credit?rec.credit.toFixed(2):0} 积分 · ${rec.req_n||0} 次请求 · 免费 ${rec.free_n||0} 次` + (oc > 0 ? ` · 本机 ${lc.toFixed(2)} / 非本机 ${oc.toFixed(2)}` : '');
   $('#detailPanel').innerHTML = `
-    <div class="detail-title"><b>${cnDate(dk)}</b><span class="sum">${sumTxt}</span>${nav}</div>
+    <div class="detail-title"><b>${cnDate(dk)}</b><span class="sum">${esc(sumTxt)}</span>${nav}</div>
     <div class="scroll"><table>${head}${body}</table></div>`;
   syncDayNav();
 }
@@ -948,7 +949,7 @@ function setModelMetric(m){
   renderModels();
 }
 function aggModelCredit(keys){
-  const aggC = {}, aggN = {};
+  const aggC = Object.create(null), aggN = Object.create(null);
   keys.forEach(k=>{
     const d = DAYS[k]; if(!d) return;
     for(const [m,v] of Object.entries(d.by_model||{})) aggC[m]=(aggC[m]||0)+v;
@@ -958,7 +959,7 @@ function aggModelCredit(keys){
 }
 /* 窗口 Token 按模型（session_days「天 × 会话 × 模型」跨天合并；本机 jsonl 口径） */
 function aggModelTok(keys){
-  const bm = {};
+  const bm = Object.create(null);
   keys.forEach(k=>{
     const dd = (DATA.session_days||{})[k]; if(!dd) return;
     for(const sid in dd){
@@ -983,7 +984,7 @@ function renderModels(){
     base = {}; bm.forEach(x=>{ base[x.name] = x.tokens; });
     list = bm.map(x=>x.name);
     total = bm.reduce((a,x)=>a+x.tokens,0) || 1;
-    valOf = m=>{ const x = bm.find(y=>y.name===m) || {}; return `${fmtTok(x.tokens||0)} Token · ${x.n||0} 次`; };
+    valOf = m=>{ const x = bm.find(y=>y.name===m) || {}; return `${fmtTok(x.tokens||0)} Token · ${esc(x.n||0)} 次`; };
     const curT = bm.reduce((a,x)=>a+(x.tokens||0),0);
     const prevT = winRange==='all' ? 0 : sumSessDays(prevWinDays(), v=>v.tokens);
     foot = '<div class="mtnote">' + (winRange==='all'
@@ -995,7 +996,7 @@ function renderModels(){
     base = modelMetric==='credit' ? aggC : aggN;
     list = Object.keys(base).sort((a,b)=>base[b]-base[a]);
     total = list.reduce((a,m)=>a+base[m],0) || 1;
-    valOf = m=>`${(aggC[m]||0).toFixed(2)} 积分 · ${aggN[m]||0} 次`;
+    valOf = m=>`${(aggC[m]||0).toFixed(2)} 积分 · ${esc(aggN[m]||0)} 次`;
     if(winRange!=='all'){
       const cur = list.reduce((a,m)=>a+base[m],0);
       const prev = sumOver(DAYS, prevWinDays(), modelMetric==='credit' ? (v=>v.credit) : (v=>v.req_n));
@@ -1035,13 +1036,13 @@ function renderSource(){
       <i style="width:${lp.toFixed(2)}%;background:var(--accent)"></i><i style="width:${op.toFixed(2)}%;background:var(--dim)"></i>
     </div>
     <div class="slegend">
-      <span><i class="k" style="background:var(--accent)"></i>本机 <b class="num"> ${L.credit.toFixed(1)}</b> 积分 · ${lp.toFixed(1)}% · ${L.n} 条</span>
-      <span><i class="k" style="background:var(--dim)"></i>其他端 <b class="num">${other.toFixed(1)}</b> 积分 · ${op.toFixed(1)}% · ${otherN} 条</span>
+      <span><i class="k" style="background:var(--accent)"></i>本机 <b class="num"> ${L.credit.toFixed(1)}</b> 积分 · ${lp.toFixed(1)}% · ${esc(L.n)} 条</span>
+      <span><i class="k" style="background:var(--dim)"></i>其他端 <b class="num">${other.toFixed(1)}</b> 积分 · ${op.toFixed(1)}% · ${esc(otherN)} 条</span>
     </div>
     <details class="moreinfo"><summary>ⓘ 口径与构成说明</summary>
-      <div class="mi-body"><b>本机构成</b>：逐笔对账命中 <b class="num">${LM.credit.toFixed(1)}</b>（${LM.n} 条）· 本机辅助调用 <b class="num">${LA.credit.toFixed(1)}</b>（${LA.n} 条）。<br>
+      <div class="mi-body"><b>本机构成</b>：逐笔对账命中 <b class="num">${LM.credit.toFixed(1)}</b>（${esc(LM.n)} 条）· 本机辅助调用 <b class="num">${LA.credit.toFixed(1)}</b>（${esc(LA.n)} 条）。<br>
       辅助调用 = 平台自动触发的「生成会话标题 / 上下文摘要 / 网页抓取 / 上下文压缩」等，<b>不落 conversationRequestId、永远无法逐笔对账</b>；若其发生时刻 ±10 分钟内本机确有活动，即判定为本机会话的附属请求、计入本机（2026-10-02 起，此前这类被误标为「非本机」）。<br>
-      <b>其他端构成</b>：网页版 <b class="num">${W.credit.toFixed(1)}</b>（${W.n} 条）· APP <b class="num">${C.credit.toFixed(1)}</b>（${C.n} 条）· 客户端未匹配 <b class="num">${U.credit.toFixed(1)}</b>（${U.n} 条：客户端请求但该时刻本机无活动 ⇒ 真·另一台设备）。<br>
+      <b>其他端构成</b>：网页版 <b class="num">${W.credit.toFixed(1)}</b>（${esc(W.n)} 条）· APP <b class="num">${C.credit.toFixed(1)}</b>（${esc(C.n)} 条）· 客户端未匹配 <b class="num">${U.credit.toFixed(1)}</b>（${esc(U.n)} 条：客户端请求但该时刻本机无活动 ⇒ 真·另一台设备）。<br>
       对账口径：本机 jsonl 的 conversationRequestId ↔ 账单 requestId（命中即该笔消耗可由本机会话还原）；<b>Token 明细仅本机可获得（服务端不含），本拆分只覆盖积分维度</b>。</div>
     </details>`;
 }
@@ -1050,7 +1051,7 @@ function renderSource(){
 let _sidx = null;
 function sessIndex(){
   if(!_sidx){
-    _sidx = {};
+    _sidx = Object.create(null);
     (DATA.sessions || []).forEach(s=>{ _sidx[s.sid] = s; });
   }
   return _sidx;
@@ -1078,14 +1079,14 @@ function ownTag(tc, tf, te){
 /* 窗口会话聚合：session_days「天 × 会话」跨天合并（Token / 积分 / 按模型明细均为窗口内口径） */
 function buildWinSessions(){
   const w = winDays(); if(!w) return [];
-  const agg = {};
+  const agg = Object.create(null);
   w.forEach(dk=>{
     const dd = (DATA.session_days || {})[dk]; if(!dd) return;
     for(const sid in dd){
       const v = dd[sid] || {};
       let r = agg[sid];
       if(!r) r = agg[sid] = {n:0,inp:0,out:0,think:0,hit:0,miss:0,credit:0,tc:0,tf:0,te:0,
-                             models:{}, tmin:dk, tmax:dk};
+                             models:Object.create(null), tmin:dk, tmax:dk};
       r.n += v.n||0; r.inp += v.inp||0; r.out += v.out||0; r.think += v.think||0;
       r.hit += v.hit||0; r.miss += v.miss||0; r.credit += v.credit||0;
       r.tc += v.tc||0; r.tf += v.tf||0; r.te += v.te||0;
@@ -1146,7 +1147,7 @@ function renderSessions(){
     rows = ss;
     const sum = rows.reduce((a,s)=>a+(s.tokens||0),0);
     totalTok = ts.total_tokens || sum || 1;
-    head = `<div class="stotals num" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">本机 <b>${ts.sessions_n||ss.length}</b> 个会话 · 跨模型 <b>${ts.multi_n||0}</b> 个 · 总 Token <b>${fmtTok(ts.total_tokens||sum)}</b> · 缓存命中率 <b>${(ts.hit_rate||0).toFixed(1)}%</b>${sessPageNav(rows.length)}</div>`;
+    head = `<div class="stotals num" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">本机 <b>${esc(ts.sessions_n||ss.length)}</b> 个会话 · 跨模型 <b>${esc(ts.multi_n||0)}</b> 个 · 总 Token <b>${fmtTok(ts.total_tokens||sum)}</b> · 缓存命中率 <b>${(ts.hit_rate||0).toFixed(1)}%</b>${sessPageNav(rows.length)}</div>`;
   } else {
     rows = buildWinSessions();
     const sum = rows.reduce((a,s)=>a+(s.tokens||0),0);
@@ -1163,11 +1164,11 @@ function renderSessions(){
   const maxTok = (rows[0] && rows[0].tokens) || 1;
   const pageRows = rows.slice(sessPage*SESS_PAGE, sessPage*SESS_PAGE + SESS_PAGE);
   const body = pageRows.map(s=>{
-    const chips = s.models.slice(0,4).map(m=>`<span class="model-tag">${esc(m.name)} ×${m.n}</span>`).join('')
+    const chips = s.models.slice(0,4).map(m=>`<span class="model-tag">${esc(m.name)} ×${esc(m.n)}</span>`).join('')
       + (s.models.length > 4 ? `<span class="model-tag more">+${s.models.length-4}</span>` : '');
     const trs = s.models.map(m=>`<tr>
       <td><span class="model-tag">${esc(m.name)}</span></td>
-      <td class="r num">${m.n}</td>
+      <td class="r num">${esc(m.n)}</td>
       <td class="r num">${fmtTok(m.inp)}</td>
       <td class="r num">${fmtTok(m.out)}</td>
       <td class="r num">${fmtTok(m.think)}</td>
@@ -1183,8 +1184,8 @@ function renderSessions(){
         <span class="sarrow">&#9656;</span>
         <span class="stitle" title="${ttip}">${esc(s.title || s.sid.slice(0,8))}</span>
         ${subTag}
-        <span class="ssid num">${s.sid.slice(0,8)}</span>
-        <span class="srange num">${(s.tmin||'').replace(/^\d{4}-/,'')} → ${(s.tmax||'').replace(/^\d{4}-/,'')} · ${s.n} 请求</span>
+        <span class="ssid num">${esc(s.sid.slice(0,8))}</span>
+        <span class="srange num">${esc((s.tmin||'').replace(/^\d{4}-/,''))} → ${esc((s.tmax||'').replace(/^\d{4}-/,''))} · ${esc(s.n)} 请求</span>
       </div>
       <div class="schips">${chips}</div>
       ${segBarHtml(s.tc, s.tf, s.te, maxTok, s.tokens, pct)}
@@ -1241,11 +1242,11 @@ applyFs();
 function renderFoot(){
   const s = DATA.stats, meta = DATA.meta || {};
   $('#foot').innerHTML = `
-    数据范围 <b>${s.range_start} ~ ${s.range_end}</b> · 共 <b>${s.total_n}</b> 条 / <b>${s.credit_total}</b> 积分 · 免费 ${s.free_n} 条 · 账单同步于 <b>${meta.synced_at||'—'}</b> · 页面生成于 ${DATA.generated_at}
+    数据范围 <b>${esc(s.range_start)} ~ ${esc(s.range_end)}</b> · 共 <b>${esc(s.total_n)}</b> 条 / <b>${esc(s.credit_total)}</b> 积分 · 免费 ${esc(s.free_n)} 条 · 账单同步于 <b>${esc(meta.synced_at||'—')}</b> · 页面生成于 ${esc(DATA.generated_at)}
     <details class="moreinfo"><summary>ⓘ 详细口径与刷新说明</summary>
       <div class="mi-body">
         数据口径：<b>服务端账单（官方结算真值）</b>，覆盖全部客户端（客户端 / 网页版 / APP），含免费与未计费请求（credit=0，详单标 FREE）；接口边界 8/21 起，更早历史不可得。<br>
-        客户端分布：${Object.entries(s.client_dist||{}).map(([k,v])=>`${k} ${v}`).join(' · ')}。<br>
+        客户端分布：${Object.entries(s.client_dist||{}).map(([k,v])=>`${esc(k)} ${esc(v)}`).join(' · ')}。<br>
         刷新方式：运行 scripts\\refresh_billing.bat（同步账单 + 重建本页）。<br>
         数据持久性：账单接口为 <b>31 天滚动窗口</b>，本机缓存<b>永久累积</b>（按 requestId 合并，只增不减）——滑出窗口的历史数据不会从看板消失；但<b>同步间隔请勿超过 31 天</b>，否则中间未拉取的段落将永久缺失。
       </div>
