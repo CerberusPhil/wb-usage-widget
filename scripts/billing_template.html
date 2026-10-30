@@ -262,6 +262,23 @@
   .lg-today { display:inline-block; width:12px; height:12px; box-shadow:inset 0 0 0 2px var(--alert); }
   .lg-nz { display:inline-block; width:12px; height:5px; border-radius:1px; background:#d4a017; }
 
+  /* ---------- 热力柱状图（30 天 × 按模型堆叠 · v1.11.0） ---------- */
+  .hbwrap { display:flex; align-items:flex-end; gap:3px; height:160px; }
+  .hb-col { flex:1; min-width:0; height:100%; display:flex; flex-direction:column;
+            justify-content:flex-end; align-items:stretch; cursor:pointer; position:relative; }
+  .hb-col:hover > .hb-seg, .hb-col:hover > .hb-zero { outline:1px solid var(--text); outline-offset:1px; }
+  .hb-seg { display:block; width:100%; pointer-events:none;
+            transition:height 1.1s cubic-bezier(.22,1,.36,1); }
+  .hb-zero { display:block; width:100%; height:2px; background:var(--nodata-bd); pointer-events:none; }
+  .hb-col.today { box-shadow:inset 0 0 0 2px var(--alert); }
+  .hb-col.viewed .hb-seg, .hb-col.viewed .hb-zero { outline:2px solid var(--text); outline-offset:1px; }
+  .hb-col.zero { cursor:default; }
+  .legend .k { display:inline-block; width:10px; height:10px; border-radius:1px; margin-right:5px; vertical-align:-1px; }
+  .hbticks { display:flex; gap:3px; margin-top:4px; }
+  .hbticks span { flex:1; min-width:0; text-align:center; font-size:calc(9px * var(--fs,1));
+                  color:var(--faint); font-weight:600; pointer-events:none; overflow:hidden; }
+  .hbticks span.hb-dim { opacity:.35; }
+
   /* ---------- tooltip ---------- */
   #tooltip { position:fixed; display:none; background:var(--tip-bg); color:var(--text); font-size:calc(12px * var(--fs,1));
              border:1px solid var(--accent); border-radius:2px; padding:9px 12px; pointer-events:none; z-index:50; max-width:300px;
@@ -398,7 +415,11 @@
 </h2>
 <div class="panel" id="modelPanel"></div>
 
-<h2>每日消耗热力 <span class="hint">（30 天窗口 · ◀▶ 翻页 · 悬停看拆分 · 点击看当天详单）</span>
+<h2>每日消耗热力 <span class="hint">（30 天窗口 · 日历/柱状图 · ◀▶ 翻页 · 点击看当天详单）</span>
+  <span class="seg" id="viewSeg">
+    <span class="sg on" data-v="cal" onclick="setHeatView('cal')">日历</span>
+    <span class="sg" data-v="bar" onclick="setHeatView('bar')">柱状图</span>
+  </span>
   <span class="seg" id="heatSeg">
     <span class="sg on" data-m="credit" onclick="setHeatMetric('credit')">积分</span>
     <span class="sg" data-m="req" onclick="setHeatMetric('req')">请求数</span>
@@ -524,6 +545,7 @@ function setTheme(t){
   try{ localStorage.setItem('wb_theme_v1', t); }catch(e){}
   syncThemeBar();
   renderModels();
+  renderCal();
   replayCardNums();
 }
 /* 主题按钮组（替代下拉） */
@@ -666,12 +688,15 @@ function balancePkgsHtml(b){
       <div class="note" style="color:var(--faint);margin-top:6px">余额为全部资源包「剩余」之和（与官网成长计划页同口径）；粗体行 = 仍有余额的包。每月1号到账的包也会并入此处。</div></div></details>`;
 }
 
-/* ---------- 热力日历（30 天窗口 · 月份分组 · 左右翻页） ---------- */
+/* ---------- 热力日历 / 柱状图（30 天窗口 · 月份分组 · 左右翻页 · 形态切换） ---------- */
 const CAL_N = 30;
 let heatMetric = 'credit';
+let heatView = 'cal';        // 'cal' 日历 | 'bar' 柱状图（v1.11.0）
 let selected = null;
 let calEnd = null;
 const WD7 = ['一','二','三','四','五','六','日'];
+try{ const hm0 = localStorage.getItem('wb_heatmetric'); if(hm0==='credit'||hm0==='req'||hm0==='token') heatMetric = hm0; }catch(e){}
+try{ const hv0 = localStorage.getItem('wb_heatview'); if(hv0==='cal'||hv0==='bar') heatView = hv0; }catch(e){}
 
 function heatLevel(v, max){ if(v<=0) return 0; const t = Math.log(1+v)/Math.log(1+max); return t<=0.2?1:t<=0.4?2:t<=0.65?3:t<=0.85?4:5; }
 function metricVal(rec, dk){
@@ -694,7 +719,14 @@ function clampCalEnd(e){
 }
 function setHeatMetric(m){
   heatMetric = m;
+  try{ localStorage.setItem('wb_heatmetric', m); }catch(e){}
   document.querySelectorAll('#heatSeg .sg').forEach(el=>el.classList.toggle('on', el.dataset.m===m));
+  renderCal();
+}
+function setHeatView(v){
+  heatView = (v==='bar') ? 'bar' : 'cal';
+  try{ localStorage.setItem('wb_heatview', heatView); }catch(e){}
+  document.querySelectorAll('#viewSeg .sg').forEach(el=>el.classList.toggle('on', el.dataset.v===heatView));
   renderCal();
 }
 function shiftCal(step){
@@ -705,10 +737,35 @@ function shiftCal(step){
 function renderCal(){
   const box = $('#calBox');
   const b = dataBounds();
-  if(!b){ box.innerHTML = '<div style="color:var(--faint);font-size:12px;padding:20px 0">暂无数据</div>'; return; }
+  if(!b){ box.innerHTML = '<div style="color:var(--faint);font-size:12px;padding:20px 0">暂无数据</div>'; $('#legend').innerHTML = ''; return; }
   if(!calEnd) calEnd = b.max;
   calEnd = clampCalEnd(calEnd);
   const start = addDays(calEnd, -(CAL_N-1));
+  $('#calRange').textContent = `VIEW ${dkey(start).replace(/-/g,'.')} ~ ${dkey(calEnd).replace(/-/g,'.')}`;
+  const minEnd = addDays(b.min, CAL_N-1);
+  const lo = (b.max < minEnd) ? b.max : minEnd;
+  $('#calPrev').classList.toggle('off', calEnd.getTime() <= lo.getTime());
+  $('#calNext').classList.toggle('off', calEnd.getTime() >= b.max.getTime());
+  if(!box.dataset.bound){
+    box.dataset.bound = '1';
+    box.addEventListener('click', e=>{
+      const dk = e.target.dataset && e.target.dataset.dk;
+      if(!dk) return; pickDay(dk);
+    });
+    box.addEventListener('mouseover', e=>{ const dk=e.target.dataset&&e.target.dataset.dk; if(dk) showTip(e, dk); });
+    box.addEventListener('mousemove', e=>{ moveTip(e); });
+    box.addEventListener('mouseout', hideTip);
+  }
+  if(!selected){
+    const withData = Object.keys(DAYS).sort().filter(k=>DAYS[k].req_n>0);
+    selected = withData[withData.length-1];
+  }
+  if(heatView === 'bar') renderHeatBar(start); else renderCalGrid(start, b);
+  if(selected) syncDayNav();
+}
+
+function renderCalGrid(start, b){
+  const box = $('#calBox');
   let cmax = 0;
   Object.keys(DAYS).forEach(k=>{ const v = metricVal(DAYS[k], k); if(v>cmax) cmax = v; });
   const groups = [];
@@ -759,11 +816,6 @@ function renderCal(){
     if(gi < groups.length-1) html += `<div class="cal-sep"></div>`;
   });
   box.innerHTML = html;
-  $('#calRange').textContent = `VIEW ${dkey(start).replace(/-/g,'.')} ~ ${dkey(calEnd).replace(/-/g,'.')}`;
-  const minEnd = addDays(b.min, CAL_N-1);
-  const lo = (b.max < minEnd) ? b.max : minEnd;
-  $('#calPrev').classList.toggle('off', calEnd.getTime() <= lo.getTime());
-  $('#calNext').classList.toggle('off', calEnd.getTime() >= b.max.getTime());
   let legend = `<span>少</span><div class="cell c1"></div><div class="cell c2"></div><div class="cell c3"></div><div class="cell c4"></div><div class="cell c5"></div>
      <span>多（${heatMetric==='credit'?'积分':(heatMetric==='token'?'Token':'请求数')}）</span>`;
   if(heatMetric==='credit') legend += `<span style="margin-left:14px"></span><span class="lg-free"></span><span>免费（0 积分 · 有请求）</span>`;
@@ -771,21 +823,74 @@ function renderCal(){
     + `<span style="margin-left:14px"></span><span style="color:var(--faint)">Token 为本机口径 · 无本机记录 = 灰格</span>`;
   legend += `<span style="margin-left:14px"></span><span class="lg-today"></span><span>今日</span>`;
   $('#legend').innerHTML = legend;
-  if(!box.dataset.bound){
-    box.dataset.bound = '1';
-    box.addEventListener('click', e=>{
-      const dk = e.target.dataset && e.target.dataset.dk;
-      if(!dk) return; pickDay(dk);
-    });
-    box.addEventListener('mouseover', e=>{ const dk=e.target.dataset&&e.target.dataset.dk; if(dk) showTip(e, dk); });
-    box.addEventListener('mousemove', e=>{ moveTip(e); });
-    box.addEventListener('mouseout', hideTip);
+}
+
+/* ---------- 热力柱状图（30 天 × 按模型堆叠 · v1.11.0） ---------- */
+function heatBarData(start){
+  const isTok = heatMetric === 'token';
+  const dayMaps = [];
+  for(let d = new Date(start); d.getTime() <= calEnd.getTime(); d = addDays(d,1)){
+    const dk = dkey(d), map = {};
+    if(isTok){
+      aggModelTok([dk]).forEach(x=>{ if(x.tokens > 0) map[x.name] = x.tokens; });
+    } else {
+      const rec = DAYS[dk];
+      const src = rec ? (heatMetric==='credit' ? (rec.by_model||{}) : (rec.by_model_n||{})) : {};
+      for(const m in src){ if(src[m] > 0) map[m] = src[m]; }
+    }
+    const total = Object.values(map).reduce((a,v)=>a+v, 0);
+    dayMaps.push({ dk, map, total });
   }
-  if(!selected){
-    const withData = Object.keys(DAYS).sort().filter(k=>DAYS[k].req_n>0);
-    selected = withData[withData.length-1];
-  }
-  if(selected) syncDayNav();
+  const tot = {};
+  dayMaps.forEach(x=>{ for(const m in x.map) tot[m] = (tot[m]||0) + x.map[m]; });
+  const order = Object.keys(tot).sort((a,b)=>tot[b]-tot[a]).slice(0,5);
+  const otherN = Math.max(0, Object.keys(tot).length - order.length);
+  dayMaps.forEach(x=>{
+    x.segs = order.map(m=>({ name:m, v:x.map[m]||0 })).filter(s=>s.v>0);
+    const ov = Object.keys(x.map).filter(m=>order.indexOf(m)<0).reduce((a,m)=>a+x.map[m], 0);
+    if(ov > 0) x.segs.push({ name:'其他'+(otherN?'('+otherN+')':''), v:ov, other:true });
+  });
+  let winMax = 0, peakDk = null;
+  dayMaps.forEach(x=>{ if(x.total > winMax){ winMax = x.total; peakDk = x.dk; } });
+  return { dayMaps, order, otherN, winMax, peakDk, isTok };
+}
+
+function renderHeatBar(start){
+  const box = $('#calBox');
+  const { dayMaps, order, winMax, peakDk, isTok } = heatBarData(start);
+  const colors = MODEL_COLORS[currentTheme()];
+  const mx = winMax || 1;
+  const todayKey = DATA.generated_at.slice(0,10);
+  let cols = '', ticks = '';
+  dayMaps.forEach((x, i)=>{
+    const dk = x.dk, d = new Date(dk.replace(/-/g,'/'));
+    const today = dk === todayKey, viewed = dk === selected;
+    let segs;
+    if(x.total <= 0){
+      segs = '<i class="hb-zero"></i>';
+    } else {
+      segs = x.segs.map(s=>{
+        const h = (s.v / mx * 100).toFixed(2);
+        const bg = s.other ? 'var(--dim)' : colors[order.indexOf(s.name) % colors.length];
+        return `<i class="hb-seg" data-h="${h}" style="height:0%;background:${bg}"></i>`;
+      }).join('');
+    }
+    cols += `<div class="hb-col${today?' today':''}${viewed?' viewed':''}${x.total<=0?' zero':''}" data-dk="${dk}">${segs}</div>`;
+    const tickOn = (d.getDate()===1 || i%5===0);
+    ticks += `<span class="${tickOn ? '' : 'hb-dim'}">${d.getDate()}</span>`;
+  });
+  box.innerHTML = `<div class="hbwrap">${cols}</div><div class="hbticks">${ticks}</div>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll('#calBox .hb-seg').forEach(el=>{ el.style.height = el.dataset.h + '%'; });
+  }));
+  const pk = peakDk ? (heatMetric==='credit' ? (DAYS[peakDk]||{credit:0}).credit.toFixed(2)+' 积分'
+              : heatMetric==='req' ? fmt((DAYS[peakDk]||{req_n:0}).req_n)+' 次' : fmtTok(winMax)) : '—';
+  let legend = order.map((m,i)=>`<span><span class="k" style="background:${colors[i%colors.length]}"></span>${esc(m)}</span>`).join('');
+  if(dayMaps.some(x=>(x.segs||[]).some(s=>s.other)))
+    legend += `<span><span class="k" style="background:var(--dim)"></span>其他</span>`;
+  legend += `<span style="margin-left:14px;color:var(--faint)">峰值 <b class="num" style="color:var(--mid)">${pk}</b>（${peakDk?peakDk.slice(5).replace('-','/'):''}）</span>`;
+  if(isTok) legend += `<span style="margin-left:14px;color:var(--faint)">Token 为本机口径（session 聚合 · inp+out）· 无本机记录 = 空柱</span>`;
+  $('#legend').innerHTML = legend;
 }
 
 /* ---------- tooltip ---------- */
@@ -856,8 +961,8 @@ function syncDayNav(){
     if(n) n.classList.toggle('off', i >= dayList.length - 1);
     if(sel) sel.value = selected;
   });
-  document.querySelectorAll('.cal-cell.viewed').forEach(el=>el.classList.remove('viewed'));
-  const cell = document.querySelector('.cal-cell[data-dk="' + selected + '"]');
+  document.querySelectorAll('.cal-cell.viewed, .hb-col.viewed').forEach(el=>el.classList.remove('viewed'));
+  const cell = document.querySelector('.cal-cell[data-dk="' + selected + '"], .hb-col[data-dk="' + selected + '"]');
   if(cell) cell.classList.add('viewed');
 }
 function renderDetail(dk){
@@ -1254,6 +1359,10 @@ function renderFoot(){
 
 buildThemeBar(); syncThemeBar();
 buildDayList();
+(function restoreHeatChips(){
+  document.querySelectorAll('#heatSeg .sg').forEach(el=>el.classList.toggle('on', el.dataset.m===heatMetric));
+  document.querySelectorAll('#viewSeg .sg').forEach(el=>el.classList.toggle('on', el.dataset.v===heatView));
+})();
 renderCards(); renderCal(); renderDetail(selected); renderFoot(); renderSource();
 setWinRange(winRange);   /* 初始化窗口（默认近7天 · localStorage 记忆）→ 渲染模型消耗 + 会话消耗 */
 </script>
