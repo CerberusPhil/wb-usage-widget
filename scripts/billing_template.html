@@ -231,6 +231,7 @@
   .calbtn:hover { background:var(--accent); color:var(--bg); }
   .calbtn.off { opacity:.22; pointer-events:none; }
   .calbox { flex:1; max-width:600px; margin:0 auto; }
+  .calbox.bar { max-width:none; }   /* 柱状图模式：解除日历 600px 版心（v1.11.2，Philip：去两侧大留白） */
   .cal-group { margin-bottom:4px; animation: fadein .28s ease; }
   .cal-title { font-size:calc(12px * var(--fs,1)); color:var(--mid); letter-spacing:2px; font-weight:700; margin:4px 0 8px; }
   .cal-title::after { content:' ────────────'; color:var(--pborder); letter-spacing:0; }
@@ -737,6 +738,7 @@ function shiftCal(step){
 }
 function renderCal(){
   const box = $('#calBox');
+  box.classList.toggle('bar', heatView === 'bar');   // 柱状图模式解除 600px 版心
   const b = dataBounds();
   if(!b){ box.innerHTML = '<div style="color:var(--faint);font-size:12px;padding:20px 0">暂无数据</div>'; $('#legend').innerHTML = ''; return; }
   if(!calEnd) calEnd = b.max;
@@ -824,12 +826,14 @@ function renderCalGrid(start, b){
     + `<span style="margin-left:14px"></span><span style="color:var(--faint)">Token 为本机口径 · 无本机记录 = 灰格</span>`;
   legend += `<span style="margin-left:14px"></span><span class="lg-today"></span><span>今日</span>`;
   $('#legend').innerHTML = legend;
+  _calH = box.offsetHeight;    // 记录日历实际高度 → 柱状图同高
 }
 
 /* ---------- 热力柱状图（30 天 × 按模型堆叠 · v1.11.0） ---------- */
 /* 模型分类色（Philip 2026-10-30：一色一模型、色相分明；不用主题单色系深浅） */
 const BAR_PALETTE = ['#00b8a9', '#4d9fff', '#a05cff', '#ff9e1b', '#e64980'];
 let _barCache = null;    // {order, isTok, byDk} —— showBarTip 用，renderHeatBar 每次刷新
+let _calH = 0;           // 日历形态上次渲染的实际高度 → 柱状图自适应同高（Philip 2026-10-30：高度按日历状态）
 function heatBarData(start){
   const isTok = heatMetric === 'token';
   const dayMaps = [];
@@ -884,7 +888,7 @@ function renderHeatBar(start){
     const tickCls = [today?'t-today':'', viewed?'t-viewed':'', tickOn?'':'hb-dim'].filter(Boolean).join(' ');
     ticks += `<span class="${tickCls}">${d.getDate()}</span>`;
   });
-  box.innerHTML = `<div class="hbwrap">${cols}</div><div class="hbticks">${ticks}</div>`;
+  box.innerHTML = `<div class="hbwrap" style="height:${_calH || 340}px">${cols}</div><div class="hbticks">${ticks}</div>`;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     document.querySelectorAll('#calBox .hb-seg').forEach(el=>{ el.style.height = el.dataset.h + '%'; });
   }));
