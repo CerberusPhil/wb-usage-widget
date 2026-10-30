@@ -262,22 +262,23 @@
   .lg-today { display:inline-block; width:12px; height:12px; box-shadow:inset 0 0 0 2px var(--alert); }
   .lg-nz { display:inline-block; width:12px; height:5px; border-radius:1px; background:#d4a017; }
 
-  /* ---------- 热力柱状图（30 天 × 按模型堆叠 · v1.11.0） ---------- */
+  /* ---------- 热力柱状图（30 天 × 按模型堆叠 · v1.11.0；v1.11.1 一色一模型/去描线） ---------- */
   .hbwrap { display:flex; align-items:flex-end; gap:3px; height:160px; }
   .hb-col { flex:1; min-width:0; height:100%; display:flex; flex-direction:column;
             justify-content:flex-end; align-items:stretch; cursor:pointer; position:relative; }
-  .hb-col:hover > .hb-seg, .hb-col:hover > .hb-zero { outline:1px solid var(--text); outline-offset:1px; }
+  .hb-col:hover > .hb-seg { filter:brightness(1.12); }
   .hb-seg { display:block; width:100%; pointer-events:none;
             transition:height 1.1s cubic-bezier(.22,1,.36,1); }
   .hb-zero { display:block; width:100%; height:2px; background:var(--nodata-bd); pointer-events:none; }
-  .hb-col.today { box-shadow:inset 0 0 0 2px var(--alert); }
-  .hb-col.viewed .hb-seg, .hb-col.viewed .hb-zero { outline:2px solid var(--text); outline-offset:1px; }
   .hb-col.zero { cursor:default; }
   .legend .k { display:inline-block; width:10px; height:10px; border-radius:1px; margin-right:5px; vertical-align:-1px; }
+  .btk { display:inline-block; width:8px; height:8px; border-radius:1px; margin-right:5px; vertical-align:middle; }
   .hbticks { display:flex; gap:3px; margin-top:4px; }
   .hbticks span { flex:1; min-width:0; text-align:center; font-size:calc(9px * var(--fs,1));
                   color:var(--faint); font-weight:600; pointer-events:none; overflow:hidden; }
   .hbticks span.hb-dim { opacity:.35; }
+  .hbticks span.t-today { color:var(--alert); opacity:1; font-weight:700; }
+  .hbticks span.t-viewed { color:var(--accent2); opacity:1; font-weight:700; }
 
   /* ---------- tooltip ---------- */
   #tooltip { position:fixed; display:none; background:var(--tip-bg); color:var(--text); font-size:calc(12px * var(--fs,1));
@@ -752,7 +753,7 @@ function renderCal(){
       const dk = e.target.dataset && e.target.dataset.dk;
       if(!dk) return; pickDay(dk);
     });
-    box.addEventListener('mouseover', e=>{ const dk=e.target.dataset&&e.target.dataset.dk; if(dk) showTip(e, dk); });
+    box.addEventListener('mouseover', e=>{ const dk=e.target.dataset&&e.target.dataset.dk; if(dk){ if(heatView==='bar') showBarTip(e, dk); else showTip(e, dk); } });
     box.addEventListener('mousemove', e=>{ moveTip(e); });
     box.addEventListener('mouseout', hideTip);
   }
@@ -826,6 +827,9 @@ function renderCalGrid(start, b){
 }
 
 /* ---------- 热力柱状图（30 天 × 按模型堆叠 · v1.11.0） ---------- */
+/* 模型分类色（Philip 2026-10-30：一色一模型、色相分明；不用主题单色系深浅） */
+const BAR_PALETTE = ['#00b8a9', '#4d9fff', '#a05cff', '#ff9e1b', '#e64980'];
+let _barCache = null;    // {order, isTok, byDk} —— showBarTip 用，renderHeatBar 每次刷新
 function heatBarData(start){
   const isTok = heatMetric === 'token';
   const dayMaps = [];
@@ -858,7 +862,7 @@ function heatBarData(start){
 function renderHeatBar(start){
   const box = $('#calBox');
   const { dayMaps, order, winMax, peakDk, isTok } = heatBarData(start);
-  const colors = MODEL_COLORS[currentTheme()];
+  const colors = BAR_PALETTE;
   const mx = winMax || 1;
   const todayKey = DATA.generated_at.slice(0,10);
   let cols = '', ticks = '';
@@ -875,9 +879,10 @@ function renderHeatBar(start){
         return `<i class="hb-seg" data-h="${h}" style="height:0%;background:${bg}"></i>`;
       }).join('');
     }
-    cols += `<div class="hb-col${today?' today':''}${viewed?' viewed':''}${x.total<=0?' zero':''}" data-dk="${dk}">${segs}</div>`;
+    cols += `<div class="hb-col${viewed?' viewed':''}${x.total<=0?' zero':''}" data-dk="${dk}">${segs}</div>`;
     const tickOn = (d.getDate()===1 || i%5===0);
-    ticks += `<span class="${tickOn ? '' : 'hb-dim'}">${d.getDate()}</span>`;
+    const tickCls = [today?'t-today':'', viewed?'t-viewed':'', tickOn?'':'hb-dim'].filter(Boolean).join(' ');
+    ticks += `<span class="${tickCls}">${d.getDate()}</span>`;
   });
   box.innerHTML = `<div class="hbwrap">${cols}</div><div class="hbticks">${ticks}</div>`;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -891,6 +896,9 @@ function renderHeatBar(start){
   legend += `<span style="margin-left:14px;color:var(--faint)">峰值 <b class="num" style="color:var(--mid)">${pk}</b>（${peakDk?peakDk.slice(5).replace('-','/'):''}）</span>`;
   if(isTok) legend += `<span style="margin-left:14px;color:var(--faint)">Token 为本机口径（session 聚合 · inp+out）· 无本机记录 = 空柱</span>`;
   $('#legend').innerHTML = legend;
+  const byDk = {};
+  dayMaps.forEach(x=>{ byDk[x.dk] = x; });
+  _barCache = { order, isTok, byDk };
 }
 
 /* ---------- tooltip ---------- */
@@ -914,6 +922,27 @@ function showTip(e, dk){
   if(ms.length>4) html += `<div class="mrow"><span>其他 ${ms.length-4} 个模型</span><span class="mv num">${ms.slice(4).reduce((a,x)=>a+x[1],0).toFixed(2)}</span></div>`;
   if(rec.credit===0 && rec.req_n>0) html += `<div style="color:var(--mid);margin-top:2px">当日全部为免费/未计费请求</div>`;
   const tt = $('#tooltip'); tt.innerHTML = html; tt.style.display='block'; moveTip(e);
+}
+/* 柱状图 tooltip（v1.11.1）：只显示当前指标维度 + 按模型拆分（Philip：不挤全部维度） */
+function showBarTip(e, dk){
+  const bc = _barCache, x = bc && bc.byDk ? bc.byDk[dk] : null;
+  const tt = $('#tooltip');
+  let html = `<div class="tt-title">${cnDate(dk)}</div>`;
+  if(!x || x.total <= 0){
+    const no = heatMetric==='credit' ? '积分' : (heatMetric==='req' ? '请求' : '本机 Token');
+    html += `<div style="color:var(--mid)">当日无${no}记录</div>`;
+  } else {
+    const label = heatMetric==='credit' ? '积分合计' : (heatMetric==='req' ? '请求数' : 'Token（本机）');
+    const val = heatMetric==='credit' ? x.total.toFixed(2) : (heatMetric==='req' ? fmt(x.total) : fmtTok(x.total));
+    html += `<div class="mrow"><span>${label}</span><span class="mv num">${val}</span></div>`;
+    [...x.segs].sort((a,b)=>b.v-a.v).forEach(s=>{
+      const v = heatMetric==='credit' ? s.v.toFixed(2) : (heatMetric==='req' ? fmt(s.v) : fmtTok(s.v));
+      const c = s.other ? 'var(--dim)' : BAR_PALETTE[bc.order.indexOf(s.name) % BAR_PALETTE.length];
+      html += `<div class="mrow"><span><i class="btk" style="background:${c}"></i>${esc(s.name)}</span><span class="mv num">${v}</span></div>`;
+    });
+    if(bc.isTok) html += `<div style="color:var(--mid);margin-top:2px">Token 为本机口径（inp+out）</div>`;
+  }
+  tt.innerHTML = html; tt.style.display='block'; moveTip(e);
 }
 function moveTip(e){
   const tt = $('#tooltip');
